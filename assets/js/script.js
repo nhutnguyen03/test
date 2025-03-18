@@ -1,6 +1,13 @@
 // Main JavaScript file for Coffee Shop Management System
 
 document.addEventListener('DOMContentLoaded', function() {
+    // Initialize clock if clock element exists
+    const clockElement = document.getElementById('clock');
+    if (clockElement) {
+        updateClock();
+        setInterval(updateClock, 1000);
+    }
+
     // Login form validation
     const loginForm = document.querySelector('.login-form');
     if (loginForm) {
@@ -19,6 +26,9 @@ document.addEventListener('DOMContentLoaded', function() {
     initPOS();
 });
 
+// Object to store orders for each table
+let tableOrders = {};
+
 // POS System Functions
 function initPOS() {
     const tableItems = document.querySelectorAll('.table-item');
@@ -27,72 +37,114 @@ function initPOS() {
     const paymentMethods = document.querySelectorAll('.payment-method');
     
     // Table selection
-    if (tableItems) {
+    if (tableItems.length > 0) {
         tableItems.forEach(table => {
             table.addEventListener('click', function() {
-                // Remove selected class from all tables
+                // Save current order if a table was previously selected
+                const previousTableId = document.getElementById('selected_table_id').value;
+                if (previousTableId) {
+                    saveCurrentTableOrder(previousTableId);
+                }
+                
                 tableItems.forEach(t => t.classList.remove('selected'));
-                // Add selected class to clicked table
                 this.classList.add('selected');
                 
-                // Get table ID
                 const tableId = this.getAttribute('data-id');
                 document.getElementById('selected_table_id').value = tableId;
                 
-                // Show order section
+                // Load table-specific order or create a new one
+                loadTableOrder(tableId);
+                
                 document.querySelector('.order-section').style.display = 'block';
             });
         });
     }
     
+    // Initialize close and exit buttons
+    const closeOrderBtn = document.getElementById('close_order_btn');
+    if (closeOrderBtn) {
+        closeOrderBtn.addEventListener('click', function() {
+            const tableId = document.getElementById('selected_table_id').value;
+            if (tableId) {
+                // Remove order for this table
+                delete tableOrders[tableId];
+                clearOrderForm();
+                
+                // Remove occupied styling
+                const tableItem = document.querySelector(`.table-item[data-id="${tableId}"]`);
+                if (tableItem) {
+                    tableItem.classList.remove('occupied');
+                    tableItem.classList.remove('selected');
+                }
+                
+                document.querySelector('.order-section').style.display = 'none';
+                document.getElementById('selected_table_id').value = '';
+            }
+        });
+    }
+    
+    const exitOrderBtn = document.getElementById('exit_order_btn');
+    if (exitOrderBtn) {
+        exitOrderBtn.addEventListener('click', function() {
+            const tableId = document.getElementById('selected_table_id').value;
+            if (tableId) {
+                // Save current order for this table
+                saveCurrentTableOrder(tableId);
+                
+                // Mark table as occupied if it has items
+                const hasItems = document.querySelectorAll('.order-item').length > 0;
+                if (hasItems) {
+                    const tableItem = document.querySelector(`.table-item[data-id="${tableId}"]`);
+                    if (tableItem) {
+                        tableItem.classList.add('occupied');
+                    }
+                }
+                
+                // Hide order section
+                document.querySelector('.order-section').style.display = 'none';
+                document.getElementById('selected_table_id').value = '';
+                tableItems.forEach(t => t.classList.remove('selected'));
+            }
+        });
+    }
+    
     // Category selection
-    if (categoryItems) {
+    if (categoryItems.length > 0) {
         categoryItems.forEach(category => {
             category.addEventListener('click', function() {
-                // Remove active class from all categories
                 categoryItems.forEach(c => c.classList.remove('active'));
-                // Add active class to clicked category
                 this.classList.add('active');
                 
-                // Get category ID
                 const categoryId = this.getAttribute('data-id');
-                
-                // Filter products by category
                 filterProductsByCategory(categoryId);
             });
         });
     }
     
     // Product selection
-    if (productItems) {
+    if (productItems.length > 0) {
         productItems.forEach(product => {
             product.addEventListener('click', function() {
-                // Get product details
                 const productId = this.getAttribute('data-id');
                 const productName = this.querySelector('.product-name').textContent;
-                const productPrice = parseFloat(this.getAttribute('data-price'));
+                const productPrice = parseFloat(this.getAttribute('data-price')); // Đảm bảo lấy giá trị số
                 const productSize = this.getAttribute('data-size');
                 
-                // Add product to order
                 addProductToOrder(productId, productName, productPrice, productSize);
             });
         });
     }
     
     // Payment method selection
-    if (paymentMethods) {
+    if (paymentMethods.length > 0) {
         paymentMethods.forEach(method => {
             method.addEventListener('click', function() {
-                // Remove active class from all payment methods
                 paymentMethods.forEach(m => m.classList.remove('active'));
-                // Add active class to clicked payment method
                 this.classList.add('active');
                 
-                // Get payment method
                 const paymentMethod = this.getAttribute('data-method');
                 document.getElementById('payment_method').value = paymentMethod;
                 
-                // Show transaction code field if payment method is not cash
                 const transactionCodeField = document.getElementById('transaction_code_field');
                 if (transactionCodeField) {
                     if (paymentMethod !== 'Tiền mặt') {
@@ -111,10 +163,21 @@ function initPOS() {
         checkoutBtn.addEventListener('click', processCheckout);
     }
     
-    // Initialize promo code application
+    // Initialize promo code application and display
     const applyPromoBtn = document.getElementById('apply_promo_btn');
     if (applyPromoBtn) {
         applyPromoBtn.addEventListener('click', applyPromoCode);
+    }
+    
+    const showPromosBtn = document.getElementById('show_promos_btn');
+    if (showPromosBtn) {
+        showPromosBtn.addEventListener('click', togglePromosDisplay);
+    }
+    
+    // Initialize remove promo button
+    const removePromoBtn = document.getElementById('remove_promo_btn');
+    if (removePromoBtn) {
+        removePromoBtn.addEventListener('click', removePromoCode);
     }
 }
 
@@ -124,7 +187,6 @@ function filterProductsByCategory(categoryId) {
     
     productItems.forEach(product => {
         const productCategory = product.getAttribute('data-category');
-        
         if (categoryId === 'all' || productCategory === categoryId) {
             product.style.display = 'block';
         } else {
@@ -133,28 +195,52 @@ function filterProductsByCategory(categoryId) {
     });
 }
 
+// Update order total
+function updateOrderTotal() {
+    const subtotalElements = document.querySelectorAll('.item-subtotal');
+    let total = 0;
+    
+    subtotalElements.forEach(element => {
+        const subtotalText = element.textContent.replace(/[^\d]/g, ''); // Loại bỏ ký tự không phải số
+        const subtotal = parseFloat(subtotalText) || 0; // Đảm bảo không bị NaN
+        total += subtotal;
+    });
+    
+    const discountElement = document.getElementById('discount_value');
+    if (discountElement && discountElement.value) {
+        const discount = parseFloat(discountElement.value) || 0;
+        total -= discount;
+        if (total < 0) total = 0;
+    }
+    
+    const totalElement = document.querySelector('.order-total-value');
+    if (totalElement) {
+        totalElement.textContent = formatCurrency(total);
+    }
+    
+    const totalInput = document.getElementById('total_price');
+    if (totalInput) {
+        totalInput.value = total;
+    }
+}
+
 // Add product to order
 function addProductToOrder(productId, productName, productPrice, productSize) {
-    // Check if product already exists in order
     const existingItem = document.querySelector(`.order-item[data-id="${productId}"]`);
     
     if (existingItem) {
-        // Update quantity
         const quantityElement = existingItem.querySelector('.item-quantity');
         let quantity = parseInt(quantityElement.textContent);
         quantity++;
         quantityElement.textContent = quantity;
         
-        // Update subtotal
         const subtotalElement = existingItem.querySelector('.item-subtotal');
         const subtotal = quantity * productPrice;
         subtotalElement.textContent = formatCurrency(subtotal);
         
-        // Update hidden input
         const quantityInput = document.querySelector(`input[name="quantity[${productId}]"]`);
         quantityInput.value = quantity;
     } else {
-        // Create new order item
         const orderItems = document.querySelector('.order-items');
         
         const orderItem = document.createElement('div');
@@ -180,7 +266,6 @@ function addProductToOrder(productId, productName, productPrice, productSize) {
         
         orderItems.appendChild(orderItem);
         
-        // Add event listeners for quantity buttons
         const decreaseBtn = orderItem.querySelector('.btn-decrease');
         const increaseBtn = orderItem.querySelector('.btn-increase');
         const removeBtn = orderItem.querySelector('.btn-remove');
@@ -199,7 +284,6 @@ function addProductToOrder(productId, productName, productPrice, productSize) {
         });
     }
     
-    // Update order total
     updateOrderTotal();
 }
 
@@ -211,7 +295,7 @@ function updateItemQuantity(orderItem, change) {
     const quantityInput = orderItem.querySelector(`input[name^="quantity"]`);
     
     let quantity = parseInt(quantityElement.textContent);
-    const price = parseFloat(priceElement.textContent.replace(/[^\d]/g, '')) / 1000;
+    const price = parseFloat(priceElement.textContent.replace(/[^\d]/g, '')); // Lấy giá trị số, không chia thêm
     
     quantity += change;
     
@@ -227,40 +311,153 @@ function updateItemQuantity(orderItem, change) {
     updateOrderTotal();
 }
 
-// Update order total
-function updateOrderTotal() {
-    const subtotalElements = document.querySelectorAll('.item-subtotal');
-    let total = 0;
+// Toggle promo codes display
+function togglePromosDisplay() {
+    const availablePromos = document.getElementById('available_promos');
     
-    subtotalElements.forEach(element => {
-        const subtotal = parseFloat(element.textContent.replace(/[^\d]/g, '')) / 1000;
-        total += subtotal;
-    });
-    
-    // Apply discount if promo code is applied
-    const discountElement = document.getElementById('discount_value');
-    if (discountElement && discountElement.value) {
-        const discount = parseFloat(discountElement.value);
-        total -= discount;
-        
-        // Ensure total is not negative
-        if (total < 0) total = 0;
-    }
-    
-    // Update total display
-    const totalElement = document.querySelector('.order-total-value');
-    if (totalElement) {
-        totalElement.textContent = formatCurrency(total);
-    }
-    
-    // Update hidden total input
-    const totalInput = document.getElementById('total_price');
-    if (totalInput) {
-        totalInput.value = total;
+    if (availablePromos.style.display === 'none') {
+        // Fetch and display available promo codes
+        fetchAvailablePromos();
+        availablePromos.style.display = 'block';
+    } else {
+        availablePromos.style.display = 'none';
     }
 }
 
-// Apply promo code
+// Fetch available promo codes
+function fetchAvailablePromos() {
+    const availablePromos = document.getElementById('available_promos');
+    availablePromos.innerHTML = '<p>Đang tải mã khuyến mãi...</p>';
+    
+    // Use the simplified endpoint for better error reporting
+    const apiPath = window.apiBasePath ? 
+                  window.apiBasePath + 'get_promos_simple.php' : 
+                  '../staff/api/get_promos_simple.php';
+    
+    console.log('Using API path:', apiPath);
+    
+    fetch(apiPath)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Promo data received:', data);
+            
+            if (data.error) {
+                throw new Error(data.error);
+            }
+            
+            if (data.promos && data.promos.length > 0) {
+                displayPromoCodes(data.promos);
+            } else {
+                availablePromos.innerHTML = '<p>Không có mã khuyến mãi hiện hành.</p>';
+                
+                // Show additional debug info
+                if (data.count !== undefined) {
+                    availablePromos.innerHTML += `<p>Số lượng: ${data.count}</p>`;
+                }
+                if (data.query) {
+                    availablePromos.innerHTML += `<p>Query: ${data.query}</p>`;
+                }
+                if (data.current_date) {
+                    availablePromos.innerHTML += `<p>Ngày hiện tại: ${data.current_date}</p>`;
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching promo codes:', error);
+            availablePromos.innerHTML = `<p>Lỗi khi tải mã khuyến mãi: ${error.message}</p>`;
+        });
+}
+
+// Display promo codes
+function displayPromoCodes(promos) {
+    const availablePromos = document.getElementById('available_promos');
+    availablePromos.innerHTML = '';
+    
+    promos.forEach(promo => {
+        const promoItem = document.createElement('div');
+        promoItem.classList.add('promo-item');
+        promoItem.setAttribute('data-promo-id', promo.promo_id);
+        promoItem.setAttribute('data-promo-code', promo.promo_code);
+        promoItem.setAttribute('data-discount-value', promo.discount_value);
+        
+        const endDate = new Date(promo.end_date);
+        const formattedDate = endDate.toLocaleDateString('vi-VN');
+        
+        promoItem.innerHTML = `
+            <div class="promo-item-header">
+                <span class="promo-code">${promo.promo_code}</span>
+                <span class="promo-expiry">HSD: ${formattedDate}</span>
+            </div>
+            <div class="promo-description">${promo.description || 'Không có mô tả'}</div>
+            <div class="promo-value">Giảm: ${formatCurrency(promo.discount_value)}</div>
+        `;
+        
+        promoItem.addEventListener('click', function() {
+            selectPromoCode(promoItem);
+        });
+        
+        availablePromos.appendChild(promoItem);
+    });
+}
+
+// Select a promo code
+function selectPromoCode(promoItem) {
+    const promoCode = promoItem.getAttribute('data-promo-code');
+    const promoId = promoItem.getAttribute('data-promo-id');
+    const discountValue = promoItem.getAttribute('data-discount-value');
+    
+    // Fill the promo code input
+    document.getElementById('promo_code').value = promoCode;
+    
+    // Apply the promo
+    document.getElementById('promo_id').value = promoId;
+    document.getElementById('discount_value').value = discountValue;
+    
+    // Update discount info
+    updateDiscountInfo(promoCode, discountValue);
+    
+    // Hide the promo display
+    document.getElementById('available_promos').style.display = 'none';
+    
+    // Update order total
+    updateOrderTotal();
+    
+    // Show success message
+    alert(`Đã áp dụng mã khuyến mãi "${promoCode}"`);
+}
+
+// Remove promo code
+function removePromoCode() {
+    // Clear promo code input
+    document.getElementById('promo_code').value = '';
+    document.getElementById('promo_id').value = '';
+    document.getElementById('discount_value').value = '0';
+    
+    // Hide discount info
+    document.getElementById('discount_info').style.display = 'none';
+    
+    // Update order total
+    updateOrderTotal();
+    
+    // Notify user
+    alert('Đã bỏ mã khuyến mãi');
+}
+
+// Update discount info display
+function updateDiscountInfo(promoCode, discountValue) {
+    const discountInfo = document.getElementById('discount_info');
+    const discountContent = discountInfo.querySelector('.discount-info-content');
+    
+    discountContent.textContent = `Mã: ${promoCode} - Giảm: ${formatCurrency(discountValue)}`;
+    discountInfo.style.display = 'flex';
+}
+
+// Apply promo code (modified to work with manual input as well)
 function applyPromoCode() {
     const promoCodeInput = document.getElementById('promo_code');
     const promoCode = promoCodeInput.value.trim();
@@ -270,8 +467,10 @@ function applyPromoCode() {
         return;
     }
     
-    // Send AJAX request to validate promo code
-    fetch('api/validate_promo.php', {
+    // Determine API path - use window.apiBasePath if defined, otherwise use default path
+    const apiPath = window.apiBasePath ? window.apiBasePath + 'validate_promo.php' : '../staff/api/validate_promo.php';
+    
+    fetch(apiPath, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
@@ -281,18 +480,14 @@ function applyPromoCode() {
     .then(response => response.json())
     .then(data => {
         if (data.valid) {
-            // Update discount value
-            document.getElementById('discount_value').value = data.discount_value;
             document.getElementById('promo_id').value = data.promo_id;
+            document.getElementById('discount_value').value = data.discount_value;
             
-            // Show discount info
-            const discountInfo = document.getElementById('discount_info');
-            discountInfo.textContent = `Giảm giá: ${formatCurrency(data.discount_value)}`;
-            discountInfo.style.display = 'block';
+            // Update discount info
+            updateDiscountInfo(promoCode, data.discount_value);
             
             // Update order total
             updateOrderTotal();
-            
             alert('Áp dụng mã khuyến mãi thành công!');
         } else {
             alert('Mã khuyến mãi không hợp lệ hoặc đã hết hạn!');
@@ -310,8 +505,14 @@ function processCheckout() {
     const tableId = document.getElementById('selected_table_id').value;
     const paymentMethod = document.getElementById('payment_method').value;
     const orderItems = document.querySelectorAll('.order-item');
+    const submitButton = document.querySelector('button[name="submit_order"]');
     
-    // Validate order
+    console.log('Starting checkout process...');
+    console.log('Table ID:', tableId);
+    console.log('Payment Method:', paymentMethod);
+    console.log('Order items count:', orderItems.length);
+    console.log('Submit button found:', !!submitButton);
+    
     if (!tableId) {
         alert('Vui lòng chọn bàn');
         return;
@@ -327,7 +528,6 @@ function processCheckout() {
         return;
     }
     
-    // If payment method is not cash, validate transaction code
     if (paymentMethod !== 'Tiền mặt') {
         const transactionCode = document.getElementById('transaction_code').value;
         if (!transactionCode) {
@@ -336,11 +536,195 @@ function processCheckout() {
         }
     }
     
-    // Submit form
-    orderForm.submit();
+    // Use the submit button directly instead of form submit
+    if (submitButton) {
+        console.log('Submitting order form using button click...');
+        submitButton.click();
+    } else {
+        console.error('Submit button not found! Falling back to form submit...');
+        // Fallback to form submit
+        orderForm.submit();
+    }
 }
 
 // Format currency
 function formatCurrency(amount) {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
+}
+
+// Save current table order
+function saveCurrentTableOrder(tableId) {
+    const orderItems = document.querySelectorAll('.order-item');
+    if (orderItems.length > 0) {
+        // Create a structure to store order items
+        const orderData = {
+            items: [],
+            promoId: document.getElementById('promo_id').value,
+            promoCode: document.getElementById('promo_code').value,
+            discountValue: document.getElementById('discount_value').value,
+            paymentMethod: document.getElementById('payment_method').value,
+            orderNotes: document.getElementById('order_notes').value
+        };
+        
+        // Store each order item
+        orderItems.forEach(item => {
+            const itemData = {
+                productId: item.getAttribute('data-id'),
+                productName: item.querySelector('.item-name').textContent,
+                price: item.querySelector('.item-price').textContent,
+                quantity: parseInt(item.querySelector('.item-quantity').textContent),
+                subtotal: item.querySelector('.item-subtotal').textContent
+            };
+            orderData.items.push(itemData);
+        });
+        
+        // Save the order for this table
+        tableOrders[tableId] = orderData;
+        
+        // Mark table as occupied
+        const tableItem = document.querySelector(`.table-item[data-id="${tableId}"]`);
+        if (tableItem) {
+            tableItem.classList.add('occupied');
+        }
+    }
+}
+
+// Load table order
+function loadTableOrder(tableId) {
+    // Clear current order first
+    clearOrderForm();
+    
+    // Load the order for this table if it exists
+    if (tableOrders[tableId]) {
+        const orderData = tableOrders[tableId];
+        
+        // Set promo and payment information
+        document.getElementById('promo_id').value = orderData.promoId || '';
+        document.getElementById('promo_code').value = orderData.promoCode || '';
+        document.getElementById('discount_value').value = orderData.discountValue || '0';
+        document.getElementById('payment_method').value = orderData.paymentMethod || '';
+        
+        // Set order notes if available
+        if (orderData.orderNotes) {
+            document.getElementById('order_notes').value = orderData.orderNotes;
+        }
+        
+        // Show discount info if applicable
+        if (orderData.discountValue && parseFloat(orderData.discountValue) > 0 && orderData.promoCode) {
+            updateDiscountInfo(orderData.promoCode, orderData.discountValue);
+        }
+        
+        // Restore payment method selection
+        if (orderData.paymentMethod) {
+            const paymentMethods = document.querySelectorAll('.payment-method');
+            paymentMethods.forEach(method => {
+                if (method.getAttribute('data-method') === orderData.paymentMethod) {
+                    method.classList.add('active');
+                    
+                    // Show transaction code field if necessary
+                    if (orderData.paymentMethod !== 'Tiền mặt') {
+                        const transactionCodeField = document.getElementById('transaction_code_field');
+                        if (transactionCodeField) {
+                            transactionCodeField.style.display = 'block';
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Add each item to the order
+        const orderItems = document.querySelector('.order-items');
+        orderData.items.forEach(item => {
+            const orderItem = document.createElement('div');
+            orderItem.classList.add('order-item');
+            orderItem.setAttribute('data-id', item.productId);
+            
+            // Extract product name and size from full name
+            const nameParts = item.productName.match(/(.*) \((.*)\)/);
+            const productName = nameParts ? nameParts[1] : item.productName;
+            const productSize = nameParts ? nameParts[2] : '';
+            
+            orderItem.innerHTML = `
+                <div class="item-details">
+                    <span class="item-name">${item.productName}</span>
+                    <span class="item-price">${item.price}</span>
+                </div>
+                <div class="item-actions">
+                    <button type="button" class="btn-decrease">-</button>
+                    <span class="item-quantity">${item.quantity}</span>
+                    <button type="button" class="btn-increase">+</button>
+                    <span class="item-subtotal">${item.subtotal}</span>
+                    <button type="button" class="btn-remove">×</button>
+                </div>
+                <input type="hidden" name="product_id[]" value="${item.productId}">
+                <input type="hidden" name="quantity[${item.productId}]" value="${item.quantity}">
+                <input type="hidden" name="price[${item.productId}]" value="${item.price.replace(/[^\d]/g, '')}">
+            `;
+            
+            orderItems.appendChild(orderItem);
+            
+            // Add event listeners for buttons
+            const decreaseBtn = orderItem.querySelector('.btn-decrease');
+            const increaseBtn = orderItem.querySelector('.btn-increase');
+            const removeBtn = orderItem.querySelector('.btn-remove');
+            
+            decreaseBtn.addEventListener('click', function() {
+                updateItemQuantity(orderItem, -1);
+            });
+            
+            increaseBtn.addEventListener('click', function() {
+                updateItemQuantity(orderItem, 1);
+            });
+            
+            removeBtn.addEventListener('click', function() {
+                orderItem.remove();
+                updateOrderTotal();
+            });
+        });
+        
+        // Update the total
+        updateOrderTotal();
+    }
+}
+
+// Clear the order form
+function clearOrderForm() {
+    // Clear order items
+    const orderItems = document.querySelector('.order-items');
+    if (orderItems) {
+        orderItems.innerHTML = '';
+    }
+    
+    // Reset promo and discount
+    document.getElementById('promo_id').value = '';
+    document.getElementById('promo_code').value = '';
+    document.getElementById('discount_value').value = '0';
+    document.getElementById('payment_method').value = '';
+    
+    // Reset payment method selection
+    const paymentMethods = document.querySelectorAll('.payment-method');
+    paymentMethods.forEach(method => {
+        method.classList.remove('active');
+    });
+    
+    // Clear notes
+    const notesField = document.getElementById('order_notes');
+    if (notesField) {
+        notesField.value = '';
+    }
+    
+    // Hide discount info
+    const discountInfo = document.getElementById('discount_info');
+    if (discountInfo) {
+        discountInfo.style.display = 'none';
+    }
+    
+    // Hide transaction code field
+    const transactionCodeField = document.getElementById('transaction_code_field');
+    if (transactionCodeField) {
+        transactionCodeField.style.display = 'none';
+    }
+    
+    // Update total
+    updateOrderTotal();
 }

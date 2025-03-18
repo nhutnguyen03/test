@@ -18,11 +18,13 @@ if ($_SESSION['role'] !== 'Ca sáng' && $_SESSION['role'] !== 'Ca chiều') {
 // Get current shift
 $current_shift = getCurrentShift($conn);
 if (!$current_shift) {
-    $error = "Không thể xác định ca làm việc hiện tại";
+    // If cannot determine shift, assign default value to continue
+    $current_shift = 1;
+    $shift_warning = "Không thể xác định ca làm việc hiện tại. Đã sử dụng ca mặc định.";
 }
 
 // Get tables
-$tables_query = "SELECT * FROM Tables ORDER BY table_type, table_name";
+$tables_query = "SELECT * FROM Tables ORDER BY table_name";
 $tables_result = $conn->query($tables_query);
 
 // Get categories
@@ -46,6 +48,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_order'])) {
     $prices = $_POST['price'] ?? [];
     $payment_method = $_POST['payment_method'] ?? '';
     $transaction_code = $_POST['transaction_code'] ?? null;
+    $order_notes = $_POST['order_notes'] ?? '';
     
     // Validate inputs
     if (empty($table_id) || empty($product_ids) || empty($payment_method)) {
@@ -56,10 +59,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_order'])) {
         
         try {
             // Insert order
-            $order_query = "INSERT INTO Orders (user_id, table_id, shift_id, promo_id, total_price, status) 
-                           VALUES (?, ?, ?, ?, ?, 'Chờ thanh toán')";
+            $order_query = "INSERT INTO Orders (user_id, table_id, shift_id, promo_id, total_price, status, notes) 
+                           VALUES (?, ?, ?, ?, ?, 'Chờ chế biến', ?)";
             $order_stmt = $conn->prepare($order_query);
-            $order_stmt->bind_param("isidi", $_SESSION['user_id'], $table_id, $current_shift, $promo_id, $total_price);
+            $order_stmt->bind_param("isidis", $_SESSION['user_id'], $table_id, $current_shift, $promo_id, $total_price, $order_notes);
             $order_stmt->execute();
             
             $order_id = $conn->insert_id;
@@ -93,7 +96,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_order'])) {
             $conn->commit();
             
             // Redirect to receipt page
-            header("Location: receipt.php?order_id=" . $order_id);
+            header("Location: receipt.php?order_id=" . $order_id . "&autoprint=1");
             exit();
         } catch (Exception $e) {
             // Rollback transaction on error
@@ -135,6 +138,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_order'])) {
     <div class="container">
         <div class="dashboard">
             <div class="dashboard-header">
+                <div id="clock"></div>
+                <script>
+                    function updateClock() {
+                        const now = new Date();
+                        const timeString = now.toLocaleTimeString('vi-VN');
+                        document.getElementById('clock').textContent = timeString;
+                    }
+                    
+                    // Update clock immediately and every second
+                    updateClock();
+                    setInterval(updateClock, 1000);
+                </script>
                 <h1>Bán Hàng</h1>
                 <p>Nhân viên: <?php echo $_SESSION['username']; ?> | Ca: <?php echo $_SESSION['role']; ?></p>
             </div>
@@ -143,26 +158,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_order'])) {
                 <div class="alert alert-danger"><?php echo $error; ?></div>
             <?php endif; ?>
             
+            <?php if (isset($shift_warning)): ?>
+                <div class="alert alert-warning"><?php echo $shift_warning; ?></div>
+            <?php endif; ?>
+            
             <div class="pos-container">
                 <!-- Tables Section -->
                 <div class="tables-section">
                     <h2>Chọn Bàn</h2>
                     
-                    <div class="table-types">
-                        <button class="btn btn-secondary table-type-btn" data-type="all">Tất cả</button>
-                        <button class="btn btn-secondary table-type-btn" data-type="Trong nhà">Trong nhà</button>
-                        <button class="btn btn-secondary table-type-btn" data-type="Ngoài trời">Ngoài trời</button>
-                        <button class="btn btn-secondary table-type-btn" data-type="Mang về">Mang về</button>
-                    </div>
-                    
                     <div class="table-grid">
                         <?php if ($tables_result->num_rows > 0): ?>
                             <?php while ($table = $tables_result->fetch_assoc()): ?>
-                                <div class="table-item <?php echo $table['status'] === 'Đang sử dụng' ? 'occupied' : ''; ?>" 
-                                     data-id="<?php echo $table['table_id']; ?>"
-                                     data-type="<?php echo $table['table_type']; ?>">
+                                <div class="table-item" 
+                                     data-id="<?php echo $table['table_id']; ?>">
                                     <div class="table-name"><?php echo $table['table_name']; ?></div>
-                                    <div class="table-status"><?php echo $table['status']; ?></div>
                                 </div>
                             <?php endwhile; ?>
                         <?php else: ?>
@@ -219,8 +229,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_order'])) {
                         <input type="hidden" id="discount_value" name="discount_value" value="0">
                         <input type="hidden" id="total_price" name="total_price" value="0">
                         
+                        <div class="table-actions">
+                            <button type="button" id="close_order_btn" class="btn btn-danger">Đóng</button>
+                            <button type="button" id="exit_order_btn" class="btn btn-warning">Tạm Thoát</button>
+                        </div>
+                        
                         <div class="order-items">
                             <!-- Order items will be added here dynamically -->
+                        </div>
+                        
+                        <!-- Order Notes Section -->
+                        <div class="order-notes-section">
+                            <div class="form-group">
+                                <label for="order_notes">Ghi chú đơn hàng</label>
+                                <textarea id="order_notes" name="order_notes" class="form-control" placeholder="Nhập yêu cầu của khách hàng (ít đường, nhiều đá, không cần whipping cream...)"></textarea>
+                            </div>
                         </div>
                         
                         <div class="promo-code-section">
@@ -229,9 +252,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_order'])) {
                                 <div class="promo-input-group">
                                     <input type="text" id="promo_code" name="promo_code" placeholder="Nhập mã khuyến mãi">
                                     <button type="button" id="apply_promo_btn" class="btn btn-secondary">Áp Dụng</button>
+                                    <button type="button" id="show_promos_btn" class="btn btn-info">Xem Mã KM</button>
                                 </div>
                             </div>
-                            <div id="discount_info" style="display: none; color: #4CAF50; margin-bottom: 10px;"></div>
+                            <div id="available_promos" class="available-promos" style="display: none;">
+                                <!-- Available promo codes will be loaded here -->
+                            </div>
+                            <div id="discount_info" style="display: none; color: #4CAF50; margin-bottom: 10px;">
+                                <div class="discount-info-content"></div>
+                                <button type="button" id="remove_promo_btn" class="btn btn-danger btn-sm">Bỏ mã KM</button>
+                            </div>
                         </div>
                         
                         <div class="order-summary">
@@ -264,5 +294,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_order'])) {
     </div>
     
     <script src="../assets/js/script.js"></script>
+    <script>
+        // Define API paths for promo codes
+        window.apiBasePath = 'api/';  // Relative path from current directory
+    </script>
 </body>
 </html>

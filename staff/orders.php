@@ -18,15 +18,56 @@ if ($_SESSION['role'] !== 'Ca sáng' && $_SESSION['role'] !== 'Ca chiều') {
 // Get current shift
 $current_shift = getCurrentShift($conn);
 
-// Get orders for current shift
-$orders_query = "SELECT o.*, t.table_name, p.payment_method, p.status as payment_status 
-                FROM Orders o 
-                LEFT JOIN Tables t ON o.table_id = t.table_id 
-                LEFT JOIN Payments p ON o.order_id = p.order_id 
-                WHERE o.shift_id = ? 
-                ORDER BY o.order_time DESC";
-$orders_stmt = $conn->prepare($orders_query);
-$orders_stmt->bind_param("i", $current_shift);
+// Set up filters
+$date_filter = isset($_GET['date_filter']) ? $_GET['date_filter'] : date('Y-m-d');
+$status_filter = isset($_GET['status_filter']) ? $_GET['status_filter'] : '';
+
+// Build base query
+$base_query = "SELECT o.*, t.table_name, p.payment_method, p.status as payment_status 
+              FROM Orders o 
+              LEFT JOIN Tables t ON o.table_id = t.table_id 
+              LEFT JOIN Payments p ON o.order_id = p.order_id WHERE 1=1";
+
+// Add filter conditions
+$params = array();
+$types = "";
+
+// Always filter by date unless explicitly showing all
+if ($date_filter) {
+    $base_query .= " AND DATE(o.order_time) = ?";
+    $params[] = $date_filter;
+    $types .= "s";
+}
+
+// Filter by status if specified
+if ($status_filter) {
+    $base_query .= " AND o.status = ?";
+    $params[] = $status_filter;
+    $types .= "s";
+}
+
+// Filter by shift if current shift is valid and no filters are applied
+if ($current_shift && !isset($_GET['date_filter']) && !isset($_GET['status_filter'])) {
+    $base_query .= " AND o.shift_id = ?";
+    $params[] = $current_shift;
+    $types .= "i";
+}
+
+// Add order by
+$base_query .= " ORDER BY o.order_time DESC";
+
+// Prepare and execute query
+$orders_stmt = $conn->prepare($base_query);
+
+if (!empty($params)) {
+    // Create dynamic bind_param arguments
+    $bind_params = array($types);
+    for ($i = 0; $i < count($params); $i++) {
+        $bind_params[] = &$params[$i];
+    }
+    call_user_func_array(array($orders_stmt, 'bind_param'), $bind_params);
+}
+
 $orders_stmt->execute();
 $orders_result = $orders_stmt->get_result();
 
@@ -92,16 +133,61 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status'])) {
     <div class="container">
         <div class="dashboard">
             <div class="dashboard-header">
-                <h1>Quản Lý Đơn Hàng</h1>
-                <p>Nhân viên: <?php echo $_SESSION['username']; ?> | Ca: <?php echo $_SESSION['role']; ?></p>
+                <h1>Đơn Hàng</h1>
+                <?php if (!$current_shift): ?>
+                <div class="alert alert-info">Hiển thị tất cả đơn hàng trong ngày hôm nay</div>
+                <?php else: ?>
+                <div class="alert alert-info">Hiển thị đơn hàng trong ca hiện tại</div>
+                <?php endif; ?>
+            </div>
+            
+            <!-- Filter Options -->
+            <div class="filter-options" style="margin-bottom: 20px;">
+                <form method="GET" action="orders.php" class="row">
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label for="date_filter">Ngày:</label>
+                            <input type="date" id="date_filter" name="date_filter" class="form-control" 
+                                   value="<?php echo isset($_GET['date_filter']) ? $_GET['date_filter'] : date('Y-m-d'); ?>">
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label for="status_filter">Trạng thái:</label>
+                            <select id="status_filter" name="status_filter" class="form-control">
+                                <option value="">Tất cả</option>
+                                <option value="Chờ chế biến" <?php echo isset($_GET['status_filter']) && $_GET['status_filter'] === 'Chờ chế biến' ? 'selected' : ''; ?>>Chờ chế biến</option>
+                                <option value="Hoàn thành" <?php echo isset($_GET['status_filter']) && $_GET['status_filter'] === 'Hoàn thành' ? 'selected' : ''; ?>>Hoàn thành</option>
+                                <option value="Đã thanh toán" <?php echo isset($_GET['status_filter']) && $_GET['status_filter'] === 'Đã thanh toán' ? 'selected' : ''; ?>>Đã thanh toán</option>
+                                <option value="Đã hủy" <?php echo isset($_GET['status_filter']) && $_GET['status_filter'] === 'Đã hủy' ? 'selected' : ''; ?>>Đã hủy</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label>&nbsp;</label>
+                            <button type="submit" class="btn btn-primary form-control">Lọc</button>
+                        </div>
+                    </div>
+                </form>
             </div>
             
             <?php if (isset($error)): ?>
                 <div class="alert alert-danger"><?php echo $error; ?></div>
             <?php endif; ?>
             
+            <div class="alert alert-info workflow-info">
+                <strong>Quy trình xử lý đơn hàng:</strong>
+                <ul>
+                    <li><span class="status-badge status-chờ-chế-biến">Chờ chế biến</span> - Đơn hàng mới được tạo, đang chờ pha chế</li>
+                    <li><span class="status-badge status-hoàn-thành">Hoàn thành</span> - Đơn hàng đã được pha chế xong, sẵn sàng giao cho khách</li>
+                    <li><span class="status-badge status-đã-thanh-toán">Đã thanh toán</span> - Đơn hàng đã thanh toán và hoàn tất</li>
+                    <li><span class="status-badge status-đã-hủy">Đã hủy</span> - Đơn hàng đã bị hủy</li>
+                </ul>
+            </div>
+            
             <div class="card">
-                <h2>Đơn Hàng Trong Ca Hiện Tại</h2>
+                <h2>Quản Lý Đơn Hàng & Pha Chế</h2>
                 
                 <table class="table">
                     <thead>
@@ -112,6 +198,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status'])) {
                             <th>Tổng Tiền</th>
                             <th>Thanh Toán</th>
                             <th>Trạng Thái</th>
+                            <th>Ghi Chú</th>
                             <th>Thao Tác</th>
                         </tr>
                     </thead>
@@ -130,9 +217,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status'])) {
                                         </span>
                                     </td>
                                     <td>
+                                        <?php if (!empty($order['notes'])): ?>
+                                            <button type="button" class="btn btn-info btn-sm" onclick="alert('<?php echo addslashes(htmlspecialchars($order['notes'])); ?>')">Xem</button>
+                                        <?php else: ?>
+                                            <span class="text-muted">Không có</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
                                         <a href="receipt.php?order_id=<?php echo $order['order_id']; ?>" class="btn btn-secondary btn-sm">Xem</a>
                                         
-                                        <?php if ($order['status'] === 'Chờ thanh toán'): ?>
+                                        <?php if ($order['status'] === 'Chờ chế biến'): ?>
+                                            <form method="POST" action="orders.php" style="display: inline;">
+                                                <input type="hidden" name="order_id" value="<?php echo $order['order_id']; ?>">
+                                                <input type="hidden" name="table_id" value="<?php echo $order['table_id']; ?>">
+                                                <input type="hidden" name="new_status" value="Hoàn thành">
+                                                <button type="submit" name="update_status" class="btn btn-success btn-sm">Hoàn thành</button>
+                                            </form>
+                                            
+                                            <form method="POST" action="orders.php" style="display: inline;">
+                                                <input type="hidden" name="order_id" value="<?php echo $order['order_id']; ?>">
+                                                <input type="hidden" name="table_id" value="<?php echo $order['table_id']; ?>">
+                                                <input type="hidden" name="new_status" value="Đã hủy">
+                                                <button type="submit" name="update_status" class="btn btn-danger btn-sm">Hủy</button>
+                                            </form>
+                                        <?php elseif ($order['status'] === 'Chờ thanh toán'): ?>
                                             <form method="POST" action="orders.php" style="display: inline;">
                                                 <input type="hidden" name="order_id" value="<?php echo $order['order_id']; ?>">
                                                 <input type="hidden" name="table_id" value="<?php echo $order['table_id']; ?>">
@@ -145,6 +253,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status'])) {
                                                 <input type="hidden" name="table_id" value="<?php echo $order['table_id']; ?>">
                                                 <input type="hidden" name="new_status" value="Đã hủy">
                                                 <button type="submit" name="update_status" class="btn btn-danger btn-sm">Hủy</button>
+                                            </form>
+                                        <?php elseif ($order['status'] === 'Hoàn thành'): ?>
+                                            <form method="POST" action="orders.php" style="display: inline;">
+                                                <input type="hidden" name="order_id" value="<?php echo $order['order_id']; ?>">
+                                                <input type="hidden" name="table_id" value="<?php echo $order['table_id']; ?>">
+                                                <input type="hidden" name="new_status" value="Đã thanh toán">
+                                                <button type="submit" name="update_status" class="btn btn-primary btn-sm">Thanh Toán</button>
                                             </form>
                                         <?php endif; ?>
                                     </td>

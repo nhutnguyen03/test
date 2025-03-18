@@ -119,6 +119,26 @@ $payment = $payment_result->fetch_assoc();
             display: block;
             margin: 20px auto;
         }
+        
+        .receipt-notes {
+            margin-top: 15px;
+            border-top: 1px dashed #ddd;
+            padding-top: 15px;
+        }
+        
+        .receipt-notes h3 {
+            font-size: 16px;
+            margin-bottom: 5px;
+            color: #4CAF50;
+        }
+        
+        .receipt-notes p {
+            font-style: italic;
+            background-color: #f9f9f9;
+            padding: 8px;
+            border-radius: 4px;
+            border-left: 3px solid #4CAF50;
+        }
     </style>
 </head>
 <body>
@@ -202,6 +222,13 @@ $payment = $payment_result->fetch_assoc();
                     </div>
                 </div>
                 
+                <?php if (!empty($order['notes'])): ?>
+                <div class="receipt-notes">
+                    <h3>Ghi chú:</h3>
+                    <p><?php echo htmlspecialchars($order['notes']); ?></p>
+                </div>
+                <?php endif; ?>
+                
                 <div class="receipt-footer">
                     <p>Cảm ơn quý khách đã ghé quán!</p>
                     <p>Hẹn gặp lại quý khách!</p>
@@ -210,8 +237,109 @@ $payment = $payment_result->fetch_assoc();
             
             <div class="actions" style="text-align: center; margin-top: 20px;">
                 <a href="pos.php" class="btn btn-secondary">Quay lại bán hàng</a>
+                <button class="btn btn-primary kitchen-print-btn" onclick="printKitchenTicket()">In phiếu chế biến</button>
+                <a href="orders.php" class="btn btn-info">Xem danh sách đơn hàng</a>
+            </div>
+            
+            <!-- Kitchen Ticket - Hidden by default, shown when printing -->
+            <div id="kitchen-ticket" style="display: none;">
+                <div class="receipt" style="max-width: 300px;">
+                    <div class="receipt-header">
+                        <div class="receipt-title">PHIẾU CHẾ BIẾN</div>
+                        <p><strong>Đơn #:</strong> <?php echo $order_id; ?></p>
+                        <p><strong>Thời gian:</strong> <?php echo date('H:i d/m/Y', strtotime($order['order_time'])); ?></p>
+                        <p><strong>Bàn:</strong> <?php echo $order['table_name']; ?></p>
+                    </div>
+                    
+                    <div class="receipt-items">
+                        <h3>Các món cần chế biến</h3>
+                        
+                        <?php
+                        // Reset pointer to first row
+                        $items_stmt->execute();
+                        $items_result = $items_stmt->get_result();
+                        
+                        while ($item = $items_result->fetch_assoc()) {
+                        ?>
+                            <div class="receipt-item" style="font-size: 18px; margin-bottom: 10px;">
+                                <div style="font-weight: bold;">
+                                    <?php echo $item['quantity']; ?> x <?php echo $item['product_name']; ?> (<?php echo $item['size']; ?>)
+                                </div>
+                            </div>
+                        <?php } ?>
+                    </div>
+                    
+                    <div class="receipt-footer">
+                        <p>Ghi chú: Làm nhanh nhé!</p>
+                    </div>
+                    
+                    <?php if (!empty($order['notes'])): ?>
+                    <div class="receipt-notes" style="margin-top: 15px; border-top: 1px dashed #000; padding-top: 10px;">
+                        <h3 style="font-size: 16px; margin-bottom: 5px; font-weight: bold;">Yêu cầu của khách:</h3>
+                        <p style="font-size: 16px; background-color: #f9f9f9; padding: 8px; border-radius: 4px; border-left: 3px solid #4CAF50;"><?php echo htmlspecialchars($order['notes']); ?></p>
+                    </div>
+                    <?php endif; ?>
+                </div>
             </div>
         </div>
     </div>
+    
+    <script>
+        // Automatically print the receipt when the page loads
+        window.onload = function() {
+            // Check if this is a direct load from checkout
+            const autoprint = <?php echo isset($_GET['autoprint']) ? 'true' : 'false'; ?>;
+            if (autoprint) {
+                window.print();
+            }
+        };
+        
+        function printKitchenTicket() {
+            const content = document.getElementById('kitchen-ticket').innerHTML;
+            const printWindow = window.open('', 'PRINT', 'height=600,width=800');
+            
+            printWindow.document.write('<html><head><title>Phiếu chế biến</title>');
+            printWindow.document.write('<style>');
+            printWindow.document.write(`
+                body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+                .receipt {
+                    max-width: 300px;
+                    margin: 0 auto;
+                    background-color: white;
+                    padding: 15px;
+                }
+                .receipt-header {
+                    text-align: center;
+                    margin-bottom: 15px;
+                    border-bottom: 1px dashed #000;
+                    padding-bottom: 10px;
+                }
+                .receipt-title {
+                    font-size: 18px;
+                    font-weight: bold;
+                    margin-bottom: 5px;
+                }
+                .receipt-items { margin-bottom: 15px; }
+                .receipt-footer {
+                    text-align: center;
+                    margin-top: 15px;
+                    font-style: italic;
+                    border-top: 1px dashed #000;
+                    padding-top: 10px;
+                }
+            `);
+            printWindow.document.write('</style></head><body>');
+            printWindow.document.write(content);
+            printWindow.document.write('</body></html>');
+            
+            printWindow.document.close();
+            printWindow.focus();
+            
+            printWindow.onload = function() {
+                printWindow.print();
+                printWindow.close();
+            };
+        }
+    </script>
 </body>
 </html>

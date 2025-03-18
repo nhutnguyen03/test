@@ -12,9 +12,7 @@ CREATE TABLE Shifts (
 );
 CREATE TABLE Tables (
     table_id VARCHAR(10) PRIMARY KEY,
-    table_name VARCHAR(50) NOT NULL,
-    table_type ENUM('Trong nhà', 'Ngoài trời', 'Mang về') NOT NULL,
-    status ENUM('Trống', 'Đang sử dụng') DEFAULT 'Trống'
+    table_name VARCHAR(50) NOT NULL
 );
 CREATE TABLE Categories (
     category_id INT AUTO_INCREMENT PRIMARY KEY,
@@ -46,7 +44,8 @@ CREATE TABLE Orders (
     promo_id INT DEFAULT NULL,
     total_price DECIMAL(10,2) NOT NULL,
     order_time DATETIME DEFAULT CURRENT_TIMESTAMP,
-    status ENUM('Chờ thanh toán', 'Đã thanh toán', 'Đã hủy') DEFAULT 'Chờ thanh toán',
+    status ENUM('Chờ chế biến', 'Hoàn thành', 'Đã thanh toán', 'Đã hủy') DEFAULT 'Chờ chế biến',
+    notes TEXT,
     FOREIGN KEY (user_id) REFERENCES Users(user_id) ON DELETE SET NULL,
     FOREIGN KEY (table_id) REFERENCES Tables(table_id),
     FOREIGN KEY (shift_id) REFERENCES Shifts(shift_id),
