@@ -36,6 +36,9 @@ function isAdmin() {
  */
 function getCurrentShift($conn) {
     $current_time = date('H:i:s');
+    
+    // Kiểm tra xem thời gian hiện tại có nằm trong một ca làm việc nào không
+    // Sử dụng BETWEEN trong SQL để xác định ca làm việc
     $query = "SELECT shift_id FROM Shifts WHERE ? BETWEEN start_time AND end_time";
     $stmt = $conn->prepare($query);
     $stmt->bind_param("s", $current_time);
@@ -47,7 +50,9 @@ function getCurrentShift($conn) {
         return $row['shift_id'];
     }
     
-    return null;
+    // Nếu không tìm thấy ca phù hợp, trả về ca mặc định (1 - Ca sáng)
+    // Thời gian hiện tại nằm ngoài giờ hoạt động của quán (7:00 - 22:00)
+    return 1; // Default to morning shift
 }
 
 /**

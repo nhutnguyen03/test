@@ -15,12 +15,36 @@ if ($_SESSION['role'] !== 'Ca sáng' && $_SESSION['role'] !== 'Ca chiều') {
     exit();
 }
 
-// Get current shift
+// Xác định ca làm việc hiện tại
 $current_shift = getCurrentShift($conn);
-if (!$current_shift) {
-    // If cannot determine shift, assign default value to continue
-    $current_shift = 1;
-    $shift_warning = "Không thể xác định ca làm việc hiện tại. Đã sử dụng ca mặc định.";
+$shift_warning = '';
+
+// Kiểm tra xem có ca làm việc hợp lệ hay không
+$shift_query = "SELECT * FROM Shifts WHERE shift_id = ?";
+$shift_stmt = $conn->prepare($shift_query);
+$shift_stmt->bind_param("i", $current_shift);
+$shift_stmt->execute();
+$shift_result = $shift_stmt->get_result();
+
+// Nếu không tìm thấy ca làm việc phù hợp với thời gian hiện tại
+if ($shift_result->num_rows == 0) {
+    $current_shift = 1; // Mặc định sử dụng ca sáng
+    $shift_warning = '<div class="alert alert-warning">
+        <strong>Lưu ý:</strong> Đang sử dụng ca mặc định (Ca sáng). 
+        Kiểm tra cài đặt ca làm việc <a href="../add_shifts.php">tại đây</a>.
+    </div>';
+} else {
+    // Kiểm tra xem thời gian hiện tại có nằm trong ca làm việc này hay không
+    $current_time = date('H:i:s');
+    $shift_data = $shift_result->fetch_assoc();
+    
+    if ($current_time < $shift_data['start_time'] || $current_time > $shift_data['end_time']) {
+        $shift_warning = '<div class="alert alert-warning">
+            <strong>Lưu ý:</strong> Thời gian hiện tại (' . $current_time . ') không nằm trong 
+            ' . $shift_data['shift_name'] . ' (' . $shift_data['start_time'] . ' - ' . $shift_data['end_time'] . ').
+            <a href="../update_shift_function.php">Kiểm tra/Cập nhật</a>
+        </div>';
+    }
 }
 
 // Get tables
@@ -159,7 +183,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_order'])) {
             <?php endif; ?>
             
             <?php if (isset($shift_warning)): ?>
-                <div class="alert alert-warning"><?php echo $shift_warning; ?></div>
+                <?php echo $shift_warning; ?>
             <?php endif; ?>
             
             <div class="pos-container">
