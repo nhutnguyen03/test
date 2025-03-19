@@ -62,72 +62,108 @@ $products_query = "SELECT p.*, c.category_name FROM Products p
                   ORDER BY p.category_id, p.product_name, p.size";
 $products_result = $conn->query($products_query);
 
-// Process order submission
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_order'])) {
-    $table_id = $_POST['table_id'] ?? '';
-    $promo_id = !empty($_POST['promo_id']) ? $_POST['promo_id'] : null;
-    $total_price = $_POST['total_price'] ?? 0;
-    $product_ids = $_POST['product_id'] ?? [];
-    $quantities = $_POST['quantity'] ?? [];
-    $prices = $_POST['price'] ?? [];
-    $payment_method = $_POST['payment_method'] ?? '';
-    $transaction_code = $_POST['transaction_code'] ?? null;
-    $order_notes = $_POST['order_notes'] ?? '';
-    
-    // Validate inputs
-    if (empty($table_id) || empty($product_ids) || empty($payment_method)) {
-        $error = "Vui lòng điền đầy đủ thông tin đơn hàng";
-    } else {
-        // Start transaction
-        $conn->begin_transaction();
+// Process order submission or complete order
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Xử lý khi ấn thanh toán để tạo đơn hàng mới
+    if (isset($_POST['submit_order'])) {
+        $table_id = $_POST['table_id'] ?? '';
+        $promo_id = !empty($_POST['promo_id']) ? $_POST['promo_id'] : null;
+        $total_price = $_POST['total_price'] ?? 0;
+        $product_ids = $_POST['product_id'] ?? [];
+        $quantities = $_POST['quantity'] ?? [];
+        $prices = $_POST['price'] ?? [];
+        $payment_method = $_POST['payment_method'] ?? '';
+        $transaction_code = $_POST['transaction_code'] ?? null;
+        $order_notes = $_POST['order_notes'] ?? '';
         
-        try {
-            // Insert order
-            $order_query = "INSERT INTO Orders (user_id, table_id, shift_id, promo_id, total_price, status, notes) 
-                           VALUES (?, ?, ?, ?, ?, 'Chờ chế biến', ?)";
-            $order_stmt = $conn->prepare($order_query);
-            $order_stmt->bind_param("isidis", $_SESSION['user_id'], $table_id, $current_shift, $promo_id, $total_price, $order_notes);
-            $order_stmt->execute();
+        // Validate inputs
+        if (empty($table_id) || empty($product_ids) || empty($payment_method)) {
+            $error = "Vui lòng điền đầy đủ thông tin đơn hàng";
+        } else {
+            // Start transaction
+            $conn->begin_transaction();
             
-            $order_id = $conn->insert_id;
-            
-            // Insert order details
-            foreach ($product_ids as $index => $product_id) {
-                $quantity = $quantities[$product_id];
-                $price = $prices[$product_id];
+            try {
+                // Insert order (không chèn status vì đã có giá trị mặc định 'Chờ chế biến')
+                $order_query = "INSERT INTO Orders (user_id, table_id, shift_id, promo_id, total_price, notes, completed) 
+                               VALUES (?, ?, ?, ?, ?, ?, ?)";
+                $order_stmt = $conn->prepare($order_query);
+                $completed = 0; // Giá trị mặc định cho completed
+                $order_stmt->bind_param("isiddsi", $_SESSION['user_id'], $table_id, $current_shift, $promo_id, $total_price, $order_notes, $completed);
+                $order_stmt->execute();
                 
-                $detail_query = "INSERT INTO Order_Details (order_id, product_id, quantity, price) 
-                               VALUES (?, ?, ?, ?)";
-                $detail_stmt = $conn->prepare($detail_query);
-                $detail_stmt->bind_param("iiid", $order_id, $product_id, $quantity, $price);
-                $detail_stmt->execute();
+                $order_id = $conn->insert_id;
+                
+                // Insert order details
+                foreach ($product_ids as $index => $product_id) {
+                    $quantity = $quantities[$product_id];
+                    $price = $prices[$product_id];
+                    
+                    $detail_query = "INSERT INTO Order_Details (order_id, product_id, quantity, price) 
+                                   VALUES (?, ?, ?, ?)";
+                    $detail_stmt = $conn->prepare($detail_query);
+                    $detail_stmt->bind_param("iiid", $order_id, $product_id, $quantity, $price);
+                    $detail_stmt->execute();
+                }
+                
+                // Insert payment
+                $payment_query = "INSERT INTO Payments (order_id, payment_method, amount, transaction_code, status) 
+                                VALUES (?, ?, ?, ?, 'Thành công')";
+                $payment_stmt = $conn->prepare($payment_query);
+                $payment_stmt->bind_param("idss", $order_id, $payment_method, $total_price, $transaction_code);
+                $payment_stmt->execute();
+                
+                // Update table status
+                $table_query = "UPDATE Tables SET status = 'Đang sử dụng' WHERE table_id = ?";
+                $table_stmt = $conn->prepare($table_query);
+                $table_stmt->bind_param("s", $table_id);
+                $table_stmt->execute();
+                
+                // Commit transaction
+                $conn->commit();
+                
+                // Redirect to receipt page
+                header("Location: receipt.php?order_id=" . $order_id . "&autoprint=1");
+                exit();
+            } catch (Exception $e) {
+                // Rollback transaction on error
+                $conn->rollback();
+                $error = "Lỗi khi xử lý đơn hàng: " . $e->getMessage();
             }
-            
-            // Insert payment
-            $payment_query = "INSERT INTO Payments (order_id, payment_method, amount, transaction_code, status) 
-                            VALUES (?, ?, ?, ?, 'Thành công')";
-            $payment_stmt = $conn->prepare($payment_query);
-            $payment_stmt->bind_param("idss", $order_id, $payment_method, $total_price, $transaction_code);
-            $payment_stmt->execute();
-            
-            // Update table status
-            $table_query = "UPDATE Tables SET status = 'Đang sử dụng' WHERE table_id = ?";
-            $table_stmt = $conn->prepare($table_query);
-            $table_stmt->bind_param("s", $table_id);
-            $table_stmt->execute();
-            
-            // Commit transaction
-            $conn->commit();
-            
-            // Redirect to receipt page
-            header("Location: receipt.php?order_id=" . $order_id . "&autoprint=1");
-            exit();
-        } catch (Exception $e) {
-            // Rollback transaction on error
-            $conn->rollback();
-            $error = "Lỗi khi xử lý đơn hàng: " . $e->getMessage();
         }
     }
+    
+    // Xử lý khi nhân viên pha chế ấn "Hoàn thành"
+    elseif (isset($_POST['complete_order'])) {
+        $order_id = $_POST['order_id'] ?? '';
+        
+        if (!empty($order_id)) {
+            try {
+                $update_query = "UPDATE Orders SET status = 'Hoàn thành', completed = 1 WHERE order_id = ?";
+                $update_stmt = $conn->prepare($update_query);
+                $update_stmt->bind_param("i", $order_id);
+                $update_stmt->execute();
+                
+                if ($update_stmt->affected_rows > 0) {
+                    $success = "Đơn hàng đã được đánh dấu là hoàn thành!";
+                } else {
+                    $error = "Không tìm thấy đơn hàng hoặc đã hoàn thành trước đó.";
+                }
+            } catch (Exception $e) {
+                $error = "Lỗi khi cập nhật trạng thái đơn hàng: " . $e->getMessage();
+            }
+        } else {
+            $error = "Vui lòng cung cấp ID đơn hàng để hoàn thành.";
+        }
+    }
+}
+
+// Hiển thị thông báo lỗi hoặc thành công (nếu cần)
+if (isset($error)) {
+    echo '<div class="alert alert-danger">' . $error . '</div>';
+}
+if (isset($success)) {
+    echo '<div class="alert alert-success">' . $success . '</div>';
 }
 ?>
 
