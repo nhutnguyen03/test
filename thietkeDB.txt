@@ -133,15 +133,17 @@ INSERT INTO Users (username, password, role) VALUES
 INSERT INTO Shifts (shift_name, start_time, end_time) VALUES
 ('Ca sáng', '07:00:00', '14:00:00'),
 ('Ca chiều', '14:00:00', '22:00:00');
-INSERT INTO Tables (table_id, table_name) VALUES
+INSERT INTO Tables (table_id, table_name, table_type, status) VALUES
 -- Bàn trong nhà
-('TB1', 'Bàn 1'),
-('TB2', 'Bàn 2'),
-('TB3', 'Bàn 3'),
-('TB4', 'Bàn 4'),
-('TB5', 'Bàn 5'),
-('TB6', 'Bàn 6'),
-('TB7', 'Bàn 7');
+('TNH1', 'Bàn trong nhà 1', 'Trong nhà', 'Trống'),
+('TNH2', 'Bàn trong nhà 2', 'Trong nhà', 'Trống'),
+('TNH3', 'Bàn trong nhà 3', 'Trong nhà', 'Trống'),
+-- Bàn ngoài trời
+('NT1', 'Bàn ngoài trời 1', 'Ngoài trời', 'Trống'),
+('NT2', 'Bàn ngoài trời 2', 'Ngoài trời', 'Trống'),
+-- Mang về
+('MV1', 'Mang về 1', 'Mang về', 'Trống'),
+('MV2', 'Mang về 2', 'Mang về', 'Trống');
 INSERT INTO Categories (category_id, category_name, status) VALUES
 (1, 'Trà', 'Hoạt động'),
 (2, 'Cà phê', 'Hoạt động'),
@@ -167,6 +169,7 @@ INSERT INTO Products (product_name, category_id, size, price, status) VALUES
 ('Coca', 4, 'Vừa', 15000, 'Hoạt động'),
 ('Topping (Trân châu)', 4, 'Nhỏ', 5000, 'Hoạt động'),
 ('Topping (Thạch)', 4, 'Nhỏ', 5000, 'Hoạt động');
+
 -- Cập nhật bảng Orders
 ALTER TABLE Orders
 ADD COLUMN completed BOOLEAN DEFAULT FALSE;
