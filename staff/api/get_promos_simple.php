@@ -31,7 +31,7 @@ $description_column = in_array('description', $columns) ? 'description' : 'descr
 // Simple query to get all active promo codes
 $query = "SELECT * FROM Promotions 
           WHERE status = 'Hoạt động' 
-          AND start_date <= '$current_date' 
+          AND start_date <= '$current_date'
           AND end_date >= '$current_date'
           ORDER BY end_date ASC";
 
@@ -59,14 +59,6 @@ while ($row = $result->fetch_assoc()) {
 
 echo json_encode([
     'promos' => $promos,
-    'count' => count($promos),
-    'current_date' => $current_date,
-    'query' => $query,
-    'column_mapping' => [
-        'promo_code_column' => $promo_code_column,
-        'discount_value_column' => $discount_value_column,
-        'description_column' => $description_column
-    ],
-    'columns' => $columns
+    'count' => count($promos)
 ]);
 ?> 

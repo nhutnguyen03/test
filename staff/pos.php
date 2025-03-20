@@ -76,6 +76,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $transaction_code = $_POST['transaction_code'] ?? null;
         $order_notes = $_POST['order_notes'] ?? '';
         
+        // Debug info
+        error_log("Product IDs: " . print_r($product_ids, true));
+        error_log("Quantities: " . print_r($quantities, true));
+        error_log("Prices: " . print_r($prices, true));
+        
         // Validate inputs
         if (empty($table_id) || empty($product_ids) || empty($payment_method)) {
             $error = "Vui lòng điền đầy đủ thông tin đơn hàng";
@@ -84,39 +89,49 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $conn->begin_transaction();
             
             try {
-                // Insert order (không chèn status vì đã có giá trị mặc định 'Chờ chế biến')
-                $order_query = "INSERT INTO Orders (user_id, table_id, shift_id, promo_id, total_price, notes, completed) 
-                               VALUES (?, ?, ?, ?, ?, ?, ?)";
+                // Insert order
+                $order_query = "INSERT INTO Orders (user_id, table_id, shift_id, promo_id, total_price, notes, status, completed) 
+                               VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
                 $order_stmt = $conn->prepare($order_query);
                 $completed = 0; // Giá trị mặc định cho completed
-                $order_stmt->bind_param("isiddsi", $_SESSION['user_id'], $table_id, $current_shift, $promo_id, $total_price, $order_notes, $completed);
+                $status = 'Chờ chế biến'; // Giá trị mặc định cho status
+                $order_stmt->bind_param("isiddssi", $_SESSION['user_id'], $table_id, $current_shift, $promo_id, $total_price, $order_notes, $status, $completed);
                 $order_stmt->execute();
                 
                 $order_id = $conn->insert_id;
                 
                 // Insert order details
-                foreach ($product_ids as $index => $product_id) {
-                    $quantity = $quantities[$product_id];
-                    $price = $prices[$product_id];
-                    
-                    $detail_query = "INSERT INTO Order_Details (order_id, product_id, quantity, price) 
-                                   VALUES (?, ?, ?, ?)";
-                    $detail_stmt = $conn->prepare($detail_query);
-                    $detail_stmt->bind_param("iiid", $order_id, $product_id, $quantity, $price);
-                    $detail_stmt->execute();
+                foreach ($product_ids as $product_id) {
+                    // Ensure product_id is numeric and exists in quantities array
+                    $product_id = intval($product_id);
+                    if (isset($quantities[$product_id]) && isset($prices[$product_id])) {
+                        $quantity = intval($quantities[$product_id]);
+                        $price = floatval($prices[$product_id]);
+                        
+                        $detail_query = "INSERT INTO Order_Details (order_id, product_id, quantity, price) 
+                                       VALUES (?, ?, ?, ?)";
+                        $detail_stmt = $conn->prepare($detail_query);
+                        $detail_stmt->bind_param("iiid", $order_id, $product_id, $quantity, $price);
+                        $detail_stmt->execute();
+                        
+                        // Log entry for debugging
+                        error_log("Added product ID: $product_id, Quantity: $quantity, Price: $price to order $order_id");
+                    } else {
+                        error_log("Missing quantity or price for product ID: $product_id");
+                    }
                 }
                 
                 // Insert payment
                 $payment_query = "INSERT INTO Payments (order_id, payment_method, amount, transaction_code, status) 
                                 VALUES (?, ?, ?, ?, 'Thành công')";
                 $payment_stmt = $conn->prepare($payment_query);
-                $payment_stmt->bind_param("idss", $order_id, $payment_method, $total_price, $transaction_code);
+                $payment_stmt->bind_param("isds", $order_id, $payment_method, $total_price, $transaction_code);
                 $payment_stmt->execute();
                 
-                // Update table status
-                $table_query = "UPDATE Tables SET status = 'Đang sử dụng' WHERE table_id = ?";
+                // Update table usage information in another way
+                $table_query = "UPDATE Orders SET notes = CONCAT(notes, ' | ') WHERE order_id = ?";
                 $table_stmt = $conn->prepare($table_query);
-                $table_stmt->bind_param("s", $table_id);
+                $table_stmt->bind_param("i", $order_id);
                 $table_stmt->execute();
                 
                 // Commit transaction
@@ -284,7 +299,6 @@ if (isset($success)) {
                     
                     <form id="order_form" method="POST" action="pos.php">
                         <input type="hidden" id="selected_table_id" name="table_id" value="">
-                        <input type="hidden" id="payment_method" name="payment_method" value="">
                         <input type="hidden" id="promo_id" name="promo_id" value="">
                         <input type="hidden" id="discount_value" name="discount_value" value="0">
                         <input type="hidden" id="total_price" name="total_price" value="0">
@@ -302,7 +316,7 @@ if (isset($success)) {
                         <div class="order-notes-section">
                             <div class="form-group">
                                 <label for="order_notes">Ghi chú đơn hàng</label>
-                                <textarea id="order_notes" name="order_notes" class="form-control" placeholder="Nhập yêu cầu của khách hàng (ít đường, nhiều đá, không cần whipping cream...)"></textarea>
+                                <textarea id="order_notes" name="order_notes" class="form-control" placeholder=""></textarea>
                             </div>
                         </div>
                         
@@ -330,22 +344,25 @@ if (isset($success)) {
                             </div>
                             
                             <div class="payment-section">
-                                <h3>Phương Thức Thanh Toán</h3>
-                                <div class="payment-methods">
-                                    <div class="payment-method" data-method="Tiền mặt">Tiền mặt</div>
-                                    <div class="payment-method" data-method="Chuyển khoản">Chuyển khoản</div>
-                                    <div class="payment-method" data-method="Thẻ">Thẻ</div>
-                                    <div class="payment-method" data-method="MoMo">MoMo</div>
+                                <h3>Thanh Toán</h3>
+                                <div class="form-group">
+                                    <label for="payment_method">Phương thức thanh toán:</label>
+                                    <select id="payment_method" name="payment_method" class="form-control" required>
+                                        <option value="">Chọn phương thức thanh toán</option>
+                                        <option value="Tiền mặt">Tiền mặt</option>
+                                        <option value="Thẻ">Thẻ</option>
+                                        <option value="Chuyển khoản">Chuyển khoản</option>
+                                        <option value="MoMo">MoMo</option>
+                                    </select>
                                 </div>
-                                
-                                <div id="transaction_code_field" class="form-group" style="display: none;">
-                                    <label for="transaction_code">Mã Giao Dịch</label>
-                                    <input type="text" id="transaction_code" name="transaction_code" placeholder="Nhập mã giao dịch">
+                                <div class="form-group">
+                                    <label for="transaction_code">Mã giao dịch (nếu có):</label>
+                                    <input type="text" id="transaction_code" name="transaction_code" class="form-control">
                                 </div>
                             </div>
                             
                             <button type="button" id="checkout_btn" class="btn btn-primary btn-block">Thanh Toán</button>
-                            <button type="submit" name="submit_order" style="display: none;">Submit</button>
+                            <button type="submit" name="submit_order" id="submit_order_btn" style="display: none;">Submit</button>
                         </div>
                     </form>
                 </div>
@@ -357,6 +374,48 @@ if (isset($success)) {
     <script>
         // Define API paths for promo codes
         window.apiBasePath = 'api/';  // Relative path from current directory
+        
+        // Complete replacement for the checkout process
+        document.addEventListener('DOMContentLoaded', function() {
+            // Replace the checkout button handler
+            const originalCheckoutBtn = document.getElementById('checkout_btn');
+            if (originalCheckoutBtn) {
+                // Remove any existing event listeners by cloning and replacing
+                const newCheckoutBtn = originalCheckoutBtn.cloneNode(true);
+                originalCheckoutBtn.parentNode.replaceChild(newCheckoutBtn, originalCheckoutBtn);
+                
+                // Add our new event listener
+                newCheckoutBtn.addEventListener('click', function() {
+                    // Get the selected table
+                    const tableId = document.getElementById('selected_table_id').value;
+                    if (!tableId) {
+                        alert('Vui lòng chọn bàn trước khi thanh toán.');
+                        return;
+                    }
+                    
+                    // Check if there are items in the order
+                    const orderItems = document.querySelectorAll('.order-item');
+                    if (orderItems.length === 0) {
+                        alert('Vui lòng thêm sản phẩm vào đơn hàng.');
+                        return;
+                    }
+                    
+                    // Get the payment method from the dropdown
+                    const paymentMethodSelect = document.getElementById('payment_method');
+                    const paymentMethod = paymentMethodSelect.value;
+                    
+                    if (!paymentMethod) {
+                        alert('Vui lòng chọn phương thức thanh toán.');
+                        return;
+                    }
+                    
+                    console.log("Payment method selected:", paymentMethod);
+                    
+                    // Submit the form by clicking the submit button
+                    document.getElementById('submit_order_btn').click();
+                });
+            }
+        });
     </script>
 </body>
 </html>

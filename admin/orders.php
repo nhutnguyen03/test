@@ -9,30 +9,31 @@ if (!isLoggedIn()) {
     exit();
 }
 
-// Check if user is staff
-if ($_SESSION['role'] !== 'Ca sáng' && $_SESSION['role'] !== 'Ca chiều') {
+// Check if user is admin
+if ($_SESSION['role'] !== 'Quản lý') {
     header("Location: ../index.php");
     exit();
 }
 
-// Get current shift
-$current_shift = getCurrentShift($conn);
-
 // Set up filters
 $date_filter = isset($_GET['date_filter']) ? $_GET['date_filter'] : date('Y-m-d');
 $status_filter = isset($_GET['status_filter']) ? $_GET['status_filter'] : '';
+$shift_filter = isset($_GET['shift_filter']) ? $_GET['shift_filter'] : '';
 
 // Build base query
-$base_query = "SELECT o.*, t.table_name, p.payment_method, p.status as payment_status 
+$base_query = "SELECT o.*, t.table_name, u.username as staff_name, s.shift_name, p.payment_method, p.status as payment_status
               FROM Orders o 
               LEFT JOIN Tables t ON o.table_id = t.table_id 
-              LEFT JOIN Payments p ON o.order_id = p.order_id WHERE 1=1";
+              LEFT JOIN Users u ON o.user_id = u.user_id
+              LEFT JOIN Shifts s ON o.shift_id = s.shift_id
+              LEFT JOIN Payments p ON o.order_id = p.order_id 
+              WHERE 1=1";
 
 // Add filter conditions
 $params = array();
 $types = "";
 
-// Always filter by date unless explicitly showing all
+// Filter by date if specified
 if ($date_filter) {
     $base_query .= " AND DATE(o.order_time) = ?";
     $params[] = $date_filter;
@@ -46,10 +47,10 @@ if ($status_filter) {
     $types .= "s";
 }
 
-// Filter by shift if current shift is valid and no filters are applied
-if ($current_shift && !isset($_GET['date_filter']) && !isset($_GET['status_filter'])) {
+// Filter by shift if specified
+if ($shift_filter) {
     $base_query .= " AND o.shift_id = ?";
-    $params[] = $current_shift;
+    $params[] = $shift_filter;
     $types .= "i";
 }
 
@@ -71,30 +72,9 @@ if (!empty($params)) {
 $orders_stmt->execute();
 $orders_result = $orders_stmt->get_result();
 
-// Process order status update
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status'])) {
-    $order_id = $_POST['order_id'] ?? 0;
-    $new_status = $_POST['new_status'] ?? '';
-    $table_id = $_POST['table_id'] ?? '';
-    
-    if ($order_id && $new_status) {
-        // Update order status
-        $update_query = "UPDATE Orders SET status = ? WHERE order_id = ?";
-        $update_stmt = $conn->prepare($update_query);
-        $update_stmt->bind_param("si", $new_status, $order_id);
-        
-        if ($update_stmt->execute()) {
-            // Không cần cập nhật trạng thái bàn nữa vì đã bỏ cột status
-            $success = "Đã cập nhật trạng thái đơn hàng thành '$new_status'";
-            
-            // Redirect to refresh the page
-            header("Location: orders.php");
-            exit();
-        } else {
-            $error = "Lỗi khi cập nhật trạng thái đơn hàng";
-        }
-    }
-}
+// Get shifts for filter dropdown
+$shifts_query = "SELECT * FROM Shifts ORDER BY shift_name";
+$shifts_result = $conn->query($shifts_query);
 ?>
 
 <!DOCTYPE html>
@@ -112,10 +92,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status'])) {
             <a href="index.php" class="navbar-brand">Quản Lý Quán Cà Phê</a>
             <ul class="navbar-nav">
                 <li class="nav-item">
-                    <a href="pos.php" class="nav-link">Bán Hàng</a>
+                    <a href="dashboard.php" class="nav-link">Dashboard</a>
+                </li>
+                <li class="nav-item">
+                    <a href="products.php" class="nav-link">Sản Phẩm</a>
                 </li>
                 <li class="nav-item">
                     <a href="orders.php" class="nav-link">Đơn Hàng</a>
+                </li>
+                <li class="nav-item">
+                    <a href="users.php" class="nav-link">Người Dùng</a>
+                </li>
+                <li class="nav-item">
+                    <a href="reports.php" class="nav-link">Báo Cáo</a>
                 </li>
                 <li class="nav-item">
                     <a href="../logout.php" class="nav-link">Đăng Xuất</a>
@@ -126,27 +115,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status'])) {
     
     <!-- Main Content -->
     <div class="container">
+        <?php if(isset($_SESSION['success'])): ?>
+            <div class="alert alert-success">
+                <?php 
+                    echo $_SESSION['success']; 
+                    unset($_SESSION['success']);
+                ?>
+            </div>
+        <?php endif; ?>
+        
+        <?php if(isset($_SESSION['error'])): ?>
+            <div class="alert alert-danger">
+                <?php 
+                    echo $_SESSION['error']; 
+                    unset($_SESSION['error']);
+                ?>
+            </div>
+        <?php endif; ?>
+        
         <div class="dashboard">
             <div class="dashboard-header">
-                <h1>Đơn Hàng</h1>
-                <?php if (!$current_shift): ?>
-                <div class="alert alert-info">Hiển thị tất cả đơn hàng trong ngày hôm nay</div>
-                <?php else: ?>
-                <div class="alert alert-info">Hiển thị đơn hàng trong ca hiện tại</div>
-                <?php endif; ?>
+                <h1>Quản Lý Đơn Hàng</h1>
+                <p>Xem và quản lý tất cả đơn hàng trong hệ thống</p>
             </div>
             
             <!-- Filter Options -->
             <div class="filter-options" style="margin-bottom: 20px;">
                 <form method="GET" action="orders.php" class="row">
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <div class="form-group">
                             <label for="date_filter">Ngày:</label>
                             <input type="date" id="date_filter" name="date_filter" class="form-control" 
                                    value="<?php echo isset($_GET['date_filter']) ? $_GET['date_filter'] : date('Y-m-d'); ?>">
                         </div>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <div class="form-group">
                             <label for="status_filter">Trạng thái:</label>
                             <select id="status_filter" name="status_filter" class="form-control">
@@ -158,7 +161,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status'])) {
                             </select>
                         </div>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-3">
+                        <div class="form-group">
+                            <label for="shift_filter">Ca làm việc:</label>
+                            <select id="shift_filter" name="shift_filter" class="form-control">
+                                <option value="">Tất cả</option>
+                                <?php while($shift = $shifts_result->fetch_assoc()): ?>
+                                <option value="<?php echo $shift['shift_id']; ?>" <?php echo isset($_GET['shift_filter']) && $_GET['shift_filter'] == $shift['shift_id'] ? 'selected' : ''; ?>>
+                                    <?php echo $shift['shift_name']; ?>
+                                </option>
+                                <?php endwhile; ?>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
                         <div class="form-group">
                             <label>&nbsp;</label>
                             <button type="submit" class="btn btn-primary form-control">Lọc</button>
@@ -166,10 +182,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status'])) {
                     </div>
                 </form>
             </div>
-            
-            <?php if (isset($error)): ?>
-                <div class="alert alert-danger"><?php echo $error; ?></div>
-            <?php endif; ?>
             
             <div class="alert alert-info workflow-info">
                 <strong>Quy trình xử lý đơn hàng:</strong>
@@ -182,13 +194,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status'])) {
             </div>
             
             <div class="card">
-                <h2>Quản Lý Đơn Hàng & Pha Chế</h2>
+                <h2>Danh Sách Đơn Hàng</h2>
                 
                 <table class="table">
                     <thead>
                         <tr>
                             <th>Mã Đơn</th>
                             <th>Bàn</th>
+                            <th>Nhân viên</th>
+                            <th>Ca</th>
                             <th>Thời Gian</th>
                             <th>Tổng Tiền</th>
                             <th>Thanh Toán</th>
@@ -203,9 +217,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status'])) {
                                 <tr>
                                     <td><?php echo $order['order_id']; ?></td>
                                     <td><?php echo $order['table_name']; ?></td>
+                                    <td><?php echo $order['staff_name']; ?></td>
+                                    <td><?php echo $order['shift_name']; ?></td>
                                     <td><?php echo date('H:i:s d/m/Y', strtotime($order['order_time'])); ?></td>
                                     <td><?php echo formatCurrency($order['total_price']); ?></td>
-                                    <td><?php echo $order['payment_method']; ?></td>
+                                    <td><?php echo !empty($order['payment_method']) ? $order['payment_method'] : '<span class="text-muted">Chưa có</span>'; ?></td>
                                     <td>
                                         <span class="status-badge status-<?php echo strtolower(str_replace(' ', '-', $order['status'])); ?>">
                                             <?php echo $order['status']; ?>
@@ -219,38 +235,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status'])) {
                                         <?php endif; ?>
                                     </td>
                                     <td>
-                                        <a href="receipt.php?order_id=<?php echo $order['order_id']; ?>" class="btn btn-secondary btn-sm">Xem</a>
-                                        
-                                        <?php if ($order['status'] === 'Chờ chế biến'): ?>
-                                            <form method="POST" action="orders.php" style="display: inline;">
-                                                <input type="hidden" name="order_id" value="<?php echo $order['order_id']; ?>">
-                                                <input type="hidden" name="table_id" value="<?php echo $order['table_id']; ?>">
-                                                <input type="hidden" name="new_status" value="Hoàn thành">
-                                                <button type="submit" name="update_status" class="btn btn-success btn-sm">Hoàn thành</button>
-                                            </form>
-                                            
-                                            <form method="POST" action="orders.php" style="display: inline;">
-                                                <input type="hidden" name="order_id" value="<?php echo $order['order_id']; ?>">
-                                                <input type="hidden" name="table_id" value="<?php echo $order['table_id']; ?>">
-                                                <input type="hidden" name="new_status" value="Đã hủy">
-                                                <button type="submit" name="update_status" class="btn btn-danger btn-sm">Hủy</button>
-                                            </form>
-                                        <?php elseif ($order['status'] === 'Chờ thanh toán'): ?>
-                                            <form method="POST" action="orders.php" style="display: inline;">
-                                                <input type="hidden" name="order_id" value="<?php echo $order['order_id']; ?>">
-                                                <input type="hidden" name="table_id" value="<?php echo $order['table_id']; ?>">
-                                                <input type="hidden" name="new_status" value="Đã hủy">
-                                                <button type="submit" name="update_status" class="btn btn-danger btn-sm">Hủy</button>
-                                            </form>
-                                        <?php elseif ($order['status'] === 'Hoàn thành'): ?>
-                                            <!-- Đã loại bỏ nút thanh toán vì quán áp dụng quy trình pay to earn -->
-                                        <?php endif; ?>
+                                        <a href="order_details.php?order_id=<?php echo $order['order_id']; ?>" class="btn btn-secondary btn-sm">Chi tiết</a>
+                                        <!-- <a href="../staff/receipt.php?order_id=<?php echo $order['order_id']; ?>" class="btn btn-info btn-sm">Hóa đơn</a> -->
+                                        <button onclick="confirmVoidBill(<?php echo $order['order_id']; ?>)" class="btn btn-danger btn-sm">Void Bill</button>
                                     </td>
                                 </tr>
                             <?php endwhile; ?>
                         <?php else: ?>
                             <tr>
-                                <td colspan="7" class="text-center">Không có đơn hàng nào</td>
+                                <td colspan="10" class="text-center">Không có đơn hàng nào</td>
                             </tr>
                         <?php endif; ?>
                     </tbody>
@@ -258,5 +251,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status'])) {
             </div>
         </div>
     </div>
+    <script>
+        function confirmVoidBill(orderId) {
+            if (confirm('Bạn có chắc chắn muốn xóa đơn hàng này? Hành động này không thể hoàn tác.')) {
+                window.location.href = 'void_bill.php?order_id=' + orderId;
+            }
+        }
+    </script>
 </body>
-</html>
+</html> 

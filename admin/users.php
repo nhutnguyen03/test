@@ -194,7 +194,8 @@ if (isset($_GET['edit']) && is_numeric($_GET['edit'])) {
                                 <label for="role">Vai Trò</label>
                                 <select id="role" name="role" required>
                                     <option value="Quản lý" <?php echo ($edit_user && $edit_user['role'] == 'Quản lý') ? 'selected' : ''; ?>>Quản lý</option>
-                                    <option value="Nhân viên" <?php echo ($edit_user && $edit_user['role'] == 'Nhân viên') ? 'selected' : ''; ?>>Nhân viên</option>
+                                    <option value="Ca sáng" <?php echo ($edit_user && $edit_user['role'] == 'Ca sáng') ? 'selected' : ''; ?>>Ca sáng</option>
+                                    <option value="Ca chiều" <?php echo ($edit_user && $edit_user['role'] == 'Ca chiều') ? 'selected' : ''; ?>>Ca chiều</option>
                                 </select>
                             </div>
                             <?php if ($edit_user): ?>

@@ -330,9 +330,10 @@ function fetchAvailablePromos() {
     availablePromos.innerHTML = '<p>Đang tải mã khuyến mãi...</p>';
     
     // Use the simplified endpoint for better error reporting
+    const timestamp = new Date().getTime(); // Thêm timestamp để tránh cache
     const apiPath = window.apiBasePath ? 
-                  window.apiBasePath + 'get_promos_simple.php' : 
-                  '../staff/api/get_promos_simple.php';
+                  window.apiBasePath + 'get_promos_simple.php?t=' + timestamp : 
+                  '../staff/api/get_promos_simple.php?t=' + timestamp;
     
     console.log('Using API path:', apiPath);
     
@@ -353,18 +354,7 @@ function fetchAvailablePromos() {
             if (data.promos && data.promos.length > 0) {
                 displayPromoCodes(data.promos);
             } else {
-                availablePromos.innerHTML = '<p>Không có mã khuyến mãi hiện hành.</p>';
-                
-                // Show additional debug info
-                if (data.count !== undefined) {
-                    availablePromos.innerHTML += `<p>Số lượng: ${data.count}</p>`;
-                }
-                if (data.query) {
-                    availablePromos.innerHTML += `<p>Query: ${data.query}</p>`;
-                }
-                if (data.current_date) {
-                    availablePromos.innerHTML += `<p>Ngày hiện tại: ${data.current_date}</p>`;
-                }
+                availablePromos.innerHTML = '<p>Không có mã khuyến mãi nào hiện hành.</p>';
             }
         })
         .catch(error => {
