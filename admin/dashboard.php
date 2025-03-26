@@ -19,7 +19,7 @@ if ($_SESSION['role'] !== 'Quản lý') {
 $today = date('Y-m-d');
 
 // Get today's revenue
-$today_revenue_query = "SELECT SUM(total_price) as total FROM Orders WHERE DATE(order_time) = ? AND status = 'Đã thanh toán'";
+$today_revenue_query = "SELECT SUM(total_price) as total FROM Orders WHERE DATE(order_time) = ? AND status IN ('Đã thanh toán', 'Hoàn thành')";
 $today_revenue_stmt = $conn->prepare($today_revenue_query);
 $today_revenue_stmt->bind_param("s", $today);
 $today_revenue_stmt->execute();
@@ -27,7 +27,7 @@ $today_revenue_result = $today_revenue_stmt->get_result();
 $today_revenue = $today_revenue_result->fetch_assoc()['total'] ?? 0;
 
 // Get today's orders count
-$today_orders_query = "SELECT COUNT(*) as count FROM Orders WHERE DATE(order_time) = ?";
+$today_orders_query = "SELECT COUNT(*) as count FROM Orders WHERE DATE(order_time) = ? AND status IN ('Đã thanh toán', 'Hoàn thành')";
 $today_orders_stmt = $conn->prepare($today_orders_query);
 $today_orders_stmt->bind_param("s", $today);
 $today_orders_stmt->execute();
@@ -37,7 +37,7 @@ $today_orders = $today_orders_result->fetch_assoc()['count'] ?? 0;
 // Get current month's revenue
 $current_month = date('m');
 $current_year = date('Y');
-$month_revenue_query = "SELECT SUM(total_price) as total FROM Orders WHERE MONTH(order_time) = ? AND YEAR(order_time) = ? AND status = 'Đã thanh toán'";
+$month_revenue_query = "SELECT SUM(total_price) as total FROM Orders WHERE MONTH(order_time) = ? AND YEAR(order_time) = ? AND status IN ('Đã thanh toán', 'Hoàn thành')";
 $month_revenue_stmt = $conn->prepare($month_revenue_query);
 $month_revenue_stmt->bind_param("ss", $current_month, $current_year);
 $month_revenue_stmt->execute();
