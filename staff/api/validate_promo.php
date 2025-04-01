@@ -75,7 +75,7 @@ if ($result->num_rows > 0) {
     echo json_encode([
         'valid' => false, 
         'message' => 'Mã khuyến mãi không hợp lệ hoặc đã hết hạn',
-        'query' => str_replace('?', "'$promo_code'", $promo_query),
-    echo json_encode(['valid' => false, 'message' => 'Mã khuyến mãi không hợp lệ hoặc đã hết hạn']);
+        'query' => str_replace('?', "'$promo_code'", $promo_query)
+    ]);
 }
 ?> 

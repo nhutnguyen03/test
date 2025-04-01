@@ -24,13 +24,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['add_user'])) {
         // Add new user
         $username = sanitize($_POST['username']);
-        $password = password_hash(sanitize($_POST['password']), PASSWORD_DEFAULT); // Hash password
+        $password = sanitize($_POST['password']);
+        $confirm_password = sanitize($_POST['confirm_password']);
         $role = sanitize($_POST['role']);
         
         // Validate inputs
-        if (empty($username) || empty($_POST['password']) || empty($role)) {
+        if (empty($username) || empty($password) || empty($confirm_password) || empty($role)) {
             $error = "Vui lòng điền đầy đủ thông tin người dùng";
+        } elseif ($password !== $confirm_password) {
+            $error = "Mật khẩu xác nhận không khớp";
         } else {
+            // Hash password
+            $hashed_password = password_hash($password, PASSWORD_DEFAULT);
+            
             // Check if username already exists
             $check_query = "SELECT COUNT(*) FROM Users WHERE username = ?";
             $check_stmt = $conn->prepare($check_query);
@@ -44,7 +50,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // Insert user
                 $insert_query = "INSERT INTO Users (username, password, role) VALUES (?, ?, ?)";
                 $insert_stmt = $conn->prepare($insert_query);
-                $insert_stmt->bind_param("sss", $username, $password, $role);
+                $insert_stmt->bind_param("sss", $username, $hashed_password, $role);
                 
                 if ($insert_stmt->execute()) {
                     $success = "Thêm người dùng thành công";
@@ -58,12 +64,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Update user
         $user_id = (int)$_POST['user_id'];
         $username = sanitize($_POST['username']);
-        $password = !empty($_POST['password']) ? password_hash(sanitize($_POST['password']), PASSWORD_DEFAULT) : null;
+        $password = sanitize($_POST['password']);
+        $confirm_password = sanitize($_POST['confirm_password']);
         $role = sanitize($_POST['role']);
         
         // Validate inputs
         if ($user_id <= 0 || empty($username) || empty($role)) {
             $error = "Vui lòng điền đầy đủ thông tin người dùng";
+        } elseif (!empty($password) && $password !== $confirm_password) {
+            $error = "Mật khẩu xác nhận không khớp";
         } else {
             // Check if username exists for another user
             $check_query = "SELECT COUNT(*) FROM Users WHERE username = ? AND user_id != ?";
@@ -76,10 +85,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $error = "Tên đăng nhập đã tồn tại";
             } else {
                 // Update user (only update password if provided)
-                if ($password) {
+                if (!empty($password)) {
+                    $hashed_password = password_hash($password, PASSWORD_DEFAULT);
                     $update_query = "UPDATE Users SET username = ?, password = ?, role = ? WHERE user_id = ?";
                     $update_stmt = $conn->prepare($update_query);
-                    $update_stmt->bind_param("sssi", $username, $password, $role, $user_id);
+                    $update_stmt->bind_param("sssi", $username, $hashed_password, $role, $user_id);
                 } else {
                     $update_query = "UPDATE Users SET username = ?, role = ? WHERE user_id = ?";
                     $update_stmt = $conn->prepare($update_query);
@@ -178,7 +188,7 @@ if (isset($_GET['edit']) && is_numeric($_GET['edit'])) {
                 <div class="col-md-4">
                     <div class="card">
                         <h2><?php echo $edit_user ? 'Cập Nhật Người Dùng' : 'Thêm Người Dùng Mới'; ?></h2>
-                        <form method="POST" action="users.php">
+                        <form method="POST" action="users.php" id="userForm">
                             <?php if ($edit_user): ?>
                                 <input type="hidden" name="user_id" value="<?php echo $edit_user['user_id']; ?>">
                             <?php endif; ?>
@@ -189,6 +199,11 @@ if (isset($_GET['edit']) && is_numeric($_GET['edit'])) {
                             <div class="form-group">
                                 <label for="password">Mật Khẩu <?php echo $edit_user ? '(Để trống nếu không đổi)' : ''; ?></label>
                                 <input type="password" id="password" name="password" <?php echo $edit_user ? '' : 'required'; ?>>
+                            </div>
+                            <div class="form-group">
+                                <label for="confirm_password">Xác Nhận Mật Khẩu</label>
+                                <input type="password" id="confirm_password" name="confirm_password" <?php echo $edit_user ? '' : 'required'; ?>>
+                                <small class="text-danger" id="password-error" style="display: none;">Mật khẩu không khớp</small>
                             </div>
                             <div class="form-group">
                                 <label for="role">Vai Trò</label>
@@ -246,5 +261,49 @@ if (isset($_GET['edit']) && is_numeric($_GET['edit'])) {
             </div>
         </div>
     </div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const userForm = document.getElementById('userForm');
+            const passwordField = document.getElementById('password');
+            const confirmPasswordField = document.getElementById('confirm_password');
+            const passwordError = document.getElementById('password-error');
+            
+            // Validate passwords match before submission
+            userForm.addEventListener('submit', function(e) {
+                if (passwordField.value || confirmPasswordField.value) {
+                    if (passwordField.value !== confirmPasswordField.value) {
+                        e.preventDefault();
+                        passwordError.style.display = 'block';
+                        return false;
+                    } else {
+                        passwordError.style.display = 'none';
+                    }
+                }
+            });
+            
+            // Live validation
+            confirmPasswordField.addEventListener('input', function() {
+                if (passwordField.value || confirmPasswordField.value) {
+                    if (passwordField.value !== confirmPasswordField.value) {
+                        passwordError.style.display = 'block';
+                    } else {
+                        passwordError.style.display = 'none';
+                    }
+                }
+            });
+            
+            // Also check when password field changes
+            passwordField.addEventListener('input', function() {
+                if (confirmPasswordField.value) {
+                    if (passwordField.value !== confirmPasswordField.value) {
+                        passwordError.style.display = 'block';
+                    } else {
+                        passwordError.style.display = 'none';
+                    }
+                }
+            });
+        });
+    </script>
 </body>
 </html>

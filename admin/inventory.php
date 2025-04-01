@@ -34,63 +34,55 @@ $materials_query = "SELECT m.*, s.supplier_name FROM Materials m
                     $materials_where ORDER BY m.material_name";
 $materials_result = $conn->query($materials_query);
 
-// Pagination for stock entries
-$entries_per_page = 10;
-$entries_page = isset($_GET['entries_page']) ? (int)$_GET['entries_page'] : 1;
-$entries_offset = ($entries_page - 1) * $entries_per_page;
-$entries_total_query = "SELECT COUNT(*) FROM Stock_Entries";
-$entries_total_result = $conn->query($entries_total_query)->fetch_row()[0];
-$entries_total_pages = ceil($entries_total_result / $entries_per_page);
-$entries_query = "SELECT se.*, m.material_name, s.supplier_name 
-                  FROM Stock_Entries se 
-                  JOIN Materials m ON se.material_id = m.material_id 
-                  JOIN Suppliers s ON se.supplier_id = s.supplier_id 
-                  ORDER BY se.entry_datetime DESC LIMIT $entries_offset, $entries_per_page";
-$entries_result = $conn->query($entries_query);
-
-// Pagination for stock usages
-$usages_per_page = 10;
-$usages_page = isset($_GET['usages_page']) ? (int)$_GET['usages_page'] : 1;
-$usages_offset = ($usages_page - 1) * $usages_per_page;
-$usages_total_query = "SELECT COUNT(*) FROM Stock_Usages";
-$usages_total_result = $conn->query($usages_total_query)->fetch_row()[0];
-$usages_total_pages = ceil($usages_total_result / $usages_per_page);
-$usages_query = "SELECT su.*, m.material_name 
-                 FROM Stock_Usages su 
-                 JOIN Materials m ON su.material_id = m.material_id 
-                 ORDER BY su.usage_date DESC LIMIT $usages_offset, $usages_per_page";
-$usages_result = $conn->query($usages_query);
-
 // Export to Excel
 if (isset($_GET['export'])) {
+    // Đặt header cho UTF-8
+    header('Content-Type: text/html; charset=utf-8');
     header('Content-Type: application/vnd.ms-excel');
-    header('Content-Disposition: attachment; filename="' . $_GET['export'] . '_export_' . date('Ymd') . '.xls"');
+    header('Content-Disposition: attachment; filename="materials_export_' . date('Ymd') . '.xls"');
+    header('Cache-Control: max-age=0');
     
-    if ($_GET['export'] == 'materials') {
-        echo "ID\tTên\tNhà Cung Cấp\tĐơn Vị\tTồn Kho\tTrạng Thái\n";
-        $materials_export_query = "SELECT m.material_id, m.material_name, s.supplier_name, m.unit, m.stock_quantity, m.status 
-                                   FROM Materials m JOIN Suppliers s ON m.supplier_id = s.supplier_id $materials_where";
-        $materials_export_result = $conn->query($materials_export_query);
-        while ($row = $materials_export_result->fetch_assoc()) {
-            echo implode("\t", [$row['material_id'], $row['material_name'], $row['supplier_name'], $row['unit'], $row['stock_quantity'], $row['status']]) . "\n";
-        }
-    } elseif ($_GET['export'] == 'entries') {
-        echo "ID\tNguyên Vật Liệu\tNhà Cung Cấp\tSố Lượng\tĐơn Giá\tTổng Chi Phí\tThời Gian\n";
-        $entries_export_query = "SELECT se.entry_id, m.material_name, s.supplier_name, se.quantity, se.cost_price, se.total_cost, se.entry_datetime 
-                                 FROM Stock_Entries se JOIN Materials m ON se.material_id = m.material_id JOIN Suppliers s ON se.supplier_id = s.supplier_id";
-        $entries_export_result = $conn->query($entries_export_query);
-        while ($row = $entries_export_result->fetch_assoc()) {
-            echo implode("\t", [$row['entry_id'], $row['material_name'], $row['supplier_name'], $row['quantity'], $row['cost_price'], $row['total_cost'], date('d/m/Y H:i', strtotime($row['entry_datetime']))]) . "\n";
-        }
-    } elseif ($_GET['export'] == 'usages') {
-        echo "ID\tNguyên Vật Liệu\tSố Lượng\tCa Làm Việc\tThời Gian\tGhi Chú\n";
-        $usages_export_query = "SELECT su.usage_id, m.material_name, su.quantity_used, su.shift_id, su.usage_date, su.note 
-                                FROM Stock_Usages su JOIN Materials m ON su.material_id = m.material_id";
-        $usages_export_result = $conn->query($usages_export_query);
-        while ($row = $usages_export_result->fetch_assoc()) {
-            echo implode("\t", [$row['usage_id'], $row['material_name'], $row['quantity_used'], $row['shift_id'], date('d/m/Y H:i', strtotime($row['usage_date'])), $row['note']]) . "\n";
-        }
+    // Tạo BOM (Byte Order Mark) để Excel nhận dạng UTF-8
+    echo chr(239) . chr(187) . chr(191);
+    
+    // Tạo HTML table thay vì text để định dạng cột riêng biệt
+    echo '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">';
+    echo '<head><meta http-equiv="Content-Type" content="text/html; charset=utf-8"></head>';
+    echo '<body>';
+    echo '<table border="1">';
+    
+    // Header row
+    echo '<tr>
+        <th>ID</th>
+        <th>Tên</th>
+        <th>Nhà Cung Cấp</th>
+        <th>Đơn Vị</th>
+        <th>Tồn Kho</th>
+        <th>Tồn Cuối</th>
+        <th>Sử Dụng</th>
+    </tr>';
+    
+    // Get data
+    $materials_export_query = "SELECT m.material_id, m.material_name, s.supplier_name, m.unit, m.stock_quantity 
+                               FROM Materials m JOIN Suppliers s ON m.supplier_id = s.supplier_id $materials_where";
+    $materials_export_result = $conn->query($materials_export_query);
+    
+    // Data rows
+    while ($row = $materials_export_result->fetch_assoc()) {
+        echo '<tr>';
+        echo '<td>' . $row['material_id'] . '</td>';
+        echo '<td>' . $row['material_name'] . '</td>';
+        echo '<td>' . $row['supplier_name'] . '</td>';
+        echo '<td>' . $row['unit'] . '</td>';
+        echo '<td>' . $row['stock_quantity'] . '</td>';
+        echo '<td></td>'; // Tồn cuối - để trống để người dùng điền sau khi kiểm kê
+        echo '<td></td>'; // Sử dụng - để trống để người dùng điền sau khi kiểm kê
+        echo '</tr>';
     }
+    
+    echo '</table>';
+    echo '</body>';
+    echo '</html>';
     exit;
 }
 
@@ -101,21 +93,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $supplier_id = (int)$_POST['supplier_id'];
         $unit = sanitize($_POST['unit']);
         $stock_quantity = (int)$_POST['stock_quantity'];
-        $status = $stock_quantity > 0 ? 'Còn hàng' : 'Hết hàng';
+        $low_stock_threshold = (int)$_POST['low_stock_threshold'];
         
-        if (empty($material_name) || $supplier_id <= 0 || empty($unit) || $stock_quantity < 0) {
-            $error = "Vui lòng điền đầy đủ thông tin nguyên vật liệu";
+        if (empty($material_name) || $supplier_id <= 0 || empty($unit)) {
+            $error = "Vui lòng điền đầy đủ thông tin nguyên liệu";
         } else {
-            $insert_query = "INSERT INTO Materials (material_name, supplier_id, unit, stock_quantity, status) 
-                           VALUES (?, ?, ?, ?, ?)";
+            $insert_query = "INSERT INTO Materials (material_name, supplier_id, unit, stock_quantity, low_stock_threshold) 
+                            VALUES (?, ?, ?, ?, ?)";
             $insert_stmt = $conn->prepare($insert_query);
-            $insert_stmt->bind_param("sisis", $material_name, $supplier_id, $unit, $stock_quantity, $status);
+            $insert_stmt->bind_param("sisii", $material_name, $supplier_id, $unit, $stock_quantity, $low_stock_threshold);
             
             if ($insert_stmt->execute()) {
-                $success = "Thêm nguyên vật liệu thành công";
-                $materials_result = $conn->query($materials_query);
+                $success = "Thêm nguyên liệu thành công";
+                // Reset form
+                $_POST = array();
             } else {
-                $error = "Lỗi khi thêm nguyên vật liệu: " . $conn->error;
+                $error = "Lỗi khi thêm nguyên liệu: " . $conn->error;
             }
         }
     } elseif (isset($_POST['update_material'])) {
@@ -123,20 +116,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $material_name = sanitize($_POST['material_name']);
         $supplier_id = (int)$_POST['supplier_id'];
         $unit = sanitize($_POST['unit']);
+        $stock_quantity = (int)$_POST['stock_quantity'];
+        $low_stock_threshold = (int)$_POST['low_stock_threshold'];
         
-        if ($material_id <= 0 || empty($material_name) || $supplier_id <= 0 || empty($unit)) {
-            $error = "Vui lòng điền đầy đủ thông tin nguyên vật liệu";
+        if (empty($material_name) || $supplier_id <= 0 || empty($unit)) {
+            $error = "Vui lòng điền đầy đủ thông tin nguyên liệu";
         } else {
-            $update_query = "UPDATE Materials SET material_name = ?, supplier_id = ?, unit = ? 
-                           WHERE material_id = ?";
+            $update_query = "UPDATE Materials SET 
+                            material_name = ?, 
+                            supplier_id = ?, 
+                            unit = ?, 
+                            stock_quantity = ?,
+                            low_stock_threshold = ?,
+                            status = IF(stock_quantity > 0, 'Còn hàng', 'Hết hàng')
+                            WHERE material_id = ?";
             $update_stmt = $conn->prepare($update_query);
-            $update_stmt->bind_param("sissi", $material_name, $supplier_id, $unit, $material_id);
+            $update_stmt->bind_param("sisiii", $material_name, $supplier_id, $unit, $stock_quantity, $low_stock_threshold, $material_id);
             
             if ($update_stmt->execute()) {
-                $success = "Cập nhật nguyên vật liệu thành công";
-                $materials_result = $conn->query($materials_query);
+                $success = "Cập nhật nguyên liệu thành công";
+                // Reset edit mode
+                unset($_GET['edit']);
             } else {
-                $error = "Lỗi khi cập nhật nguyên vật liệu: " . $conn->error;
+                $error = "Lỗi khi cập nhật nguyên liệu: " . $conn->error;
             }
         }
     } elseif (isset($_POST['delete_material'])) {
@@ -152,72 +154,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $materials_result = $conn->query($materials_query);
             } else {
                 $error = "Lỗi khi xóa nguyên vật liệu: " . $conn->error;
-            }
-        }
-    } elseif (isset($_POST['add_entry'])) {
-        $supplier_id = (int)$_POST['supplier_id'];
-        $material_id = (int)$_POST['material_id'];
-        $quantity = (int)$_POST['quantity'];
-        $cost_price = (float)$_POST['cost_price'];
-        
-        if ($supplier_id <= 0 || $material_id <= 0 || $quantity <= 0 || $cost_price <= 0) {
-            $error = "Vui lòng điền đầy đủ thông tin phiếu nhập";
-        } else {
-            $insert_entry_query = "INSERT INTO Stock_Entries (supplier_id, material_id, quantity, cost_price) 
-                                 VALUES (?, ?, ?, ?)";
-            $insert_entry_stmt = $conn->prepare($insert_entry_query);
-            $insert_entry_stmt->bind_param("iiid", $supplier_id, $material_id, $quantity, $cost_price);
-            
-            if ($insert_entry_stmt->execute()) {
-                $update_stock_query = "UPDATE Materials SET stock_quantity = stock_quantity + ?, 
-                                    status = IF(stock_quantity + ? > 0, 'Còn hàng', 'Hết hàng') 
-                                    WHERE material_id = ?";
-                $update_stock_stmt = $conn->prepare($update_stock_query);
-                $update_stock_stmt->bind_param("iii", $quantity, $quantity, $material_id);
-                $update_stock_stmt->execute();
-                
-                $success = "Thêm phiếu nhập kho thành công";
-                $materials_result = $conn->query($materials_query);
-            } else {
-                $error = "Lỗi khi thêm phiếu nhập kho: " . $conn->error;
-            }
-        }
-    } elseif (isset($_POST['add_usage'])) {
-        $material_id = (int)$_POST['material_id'];
-        $quantity_used = (int)$_POST['quantity_used'];
-        $shift_id = (int)$_POST['shift_id'];
-        $note = sanitize($_POST['note']);
-        
-        if ($material_id <= 0 || $quantity_used <= 0 || $shift_id <= 0) {
-            $error = "Vui lòng điền đầy đủ thông tin phiếu xuất";
-        } else {
-            $stock_check_query = "SELECT stock_quantity FROM Materials WHERE material_id = ?";
-            $stock_check_stmt = $conn->prepare($stock_check_query);
-            $stock_check_stmt->bind_param("i", $material_id);
-            $stock_check_stmt->execute();
-            $stock_result = $stock_check_stmt->get_result()->fetch_assoc();
-            
-            if ($stock_result['stock_quantity'] < $quantity_used) {
-                $error = "Số lượng xuất vượt quá tồn kho";
-            } else {
-                $insert_usage_query = "INSERT INTO Stock_Usages (material_id, quantity_used, shift_id, note) 
-                                     VALUES (?, ?, ?, ?)";
-                $insert_usage_stmt = $conn->prepare($insert_usage_query);
-                $insert_usage_stmt->bind_param("iiis", $material_id, $quantity_used, $shift_id, $note);
-                
-                if ($insert_usage_stmt->execute()) {
-                    $update_stock_query = "UPDATE Materials SET stock_quantity = stock_quantity - ?, 
-                                        status = IF(stock_quantity - ? > 0, 'Còn hàng', 'Hết hàng') 
-                                        WHERE material_id = ?";
-                    $update_stock_stmt = $conn->prepare($update_stock_query);
-                    $update_stock_stmt->bind_param("iii", $quantity_used, $quantity_used, $material_id);
-                    $update_stock_stmt->execute();
-                    
-                    $success = "Thêm phiếu xuất kho thành công";
-                    $materials_result = $conn->query($materials_query);
-                } else {
-                    $error = "Lỗi khi thêm phiếu xuất kho: " . $conn->error;
-                }
             }
         }
     }
@@ -237,6 +173,24 @@ if (isset($_GET['edit']) && is_numeric($_GET['edit'])) {
         $edit_material = $edit_result->fetch_assoc();
     }
 }
+
+// Get low stock materials for dashboard view
+$low_stock_query = "SELECT m.*, s.supplier_name 
+                   FROM Materials m 
+                   JOIN Suppliers s ON m.supplier_id = s.supplier_id 
+                   WHERE m.stock_quantity < 10 
+                   ORDER BY m.stock_quantity ASC
+                   LIMIT 5";
+$low_stock_result = $conn->query($low_stock_query);
+
+// Get most recent stock transactions
+$recent_transactions_query = "SELECT t.*, m.material_name, 
+                            CASE t.transaction_type WHEN 'Nhập' THEN 'success' ELSE 'warning' END AS badge_class
+                            FROM Stock_Transactions t
+                            JOIN Materials m ON t.material_id = m.material_id
+                            ORDER BY t.transaction_datetime DESC
+                            LIMIT 5";
+$recent_transactions_result = $conn->query($recent_transactions_query);
 ?>
 
 <!DOCTYPE html>
@@ -247,57 +201,85 @@ if (isset($_GET['edit']) && is_numeric($_GET['edit'])) {
     <title>Quản Lý Kho Hàng - Hệ Thống Quản Lý Quán Cà Phê</title>
     <link rel="stylesheet" href="../assets/css/style.css">
     <style>
-        .tabs {
-            overflow: hidden;
-            border-bottom: 2px solid #ddd;
+        .inventory-nav {
+            display: flex;
+            gap: 10px;
             margin-bottom: 20px;
         }
-        .tabs button {
-            background-color: #f1f1f1;
-            float: left;
-            border: none;
-            outline: none;
-            cursor: pointer;
-            padding: 12px 20px;
-            transition: 0.3s;
-            font-size: 16px;
-            border-radius: 5px 5px 0 0;
-            margin-right: 5px;
-        }
-        .tabs button:hover {
-            background-color: #ddd;
-        }
-        .tabs button.active {
-            background-color: #4CAF50;
-            color: white;
-        }
-        .tab-content {
-            display: none;
-            padding: 20px;
-            border: 1px solid #ddd;
-            border-radius: 0 5px 5px 5px;
-        }
-        .tab-content.active {
-            display: block;
-        }
-        .pagination {
-            margin-top: 20px;
-            text-align: center;
-        }
-        .pagination a {
+        .inventory-nav a {
             padding: 8px 16px;
+            background-color: #f1f1f1;
+            border-radius: 4px;
             text-decoration: none;
-            color: #4CAF50;
-            border: 1px solid #ddd;
-            margin: 0 4px;
+            color: #333;
+            font-weight: bold;
         }
-        .pagination a.active {
+        .inventory-nav a.active {
             background-color: #4CAF50;
             color: white;
         }
-        .export-btn {
-            float: right;
+        .quick-actions {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .quick-actions a {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 15px;
+            background-color: #fff;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+            text-decoration: none;
+            color: #333;
+            transition: all 0.3s;
+        }
+        .quick-actions a:hover {
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            transform: translateY(-2px);
+        }
+        .quick-actions a i {
+            font-size: 24px;
             margin-bottom: 10px;
+        }
+        .dashboard-widgets {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .widget {
+            flex: 1;
+            min-width: 250px;
+            background-color: #fff;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+            padding: 15px;
+        }
+        .widget h3 {
+            margin-top: 0;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+        }
+        .transaction-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .transaction-badge {
+            padding: 3px 8px;
+            border-radius: 3px;
+            color: white;
+            font-size: 12px;
+        }
+        .transaction-badge.success {
+            background-color: #4CAF50;
+        }
+        .transaction-badge.warning {
+            background-color: #f0ad4e;
         }
     </style>
 </head>
@@ -333,22 +315,183 @@ if (isset($_GET['edit']) && is_numeric($_GET['edit'])) {
                 <div class="alert alert-success"><?php echo $success; ?></div>
             <?php endif; ?>
             
+            <!-- Inventory Navigation -->
+            <div class="inventory-nav">
+                <a href="inventory.php" class="active">Nguyên Liệu</a>
+                <a href="suppliers.php">Nhà Cung Cấp</a>
+                <a href="stock_in.php">Nhập Kho</a>
+                <a href="stock_out.php">Xuất Kho</a>
+            </div>
+            
+            <!-- Quick Actions -->
+            <div class="quick-actions">
+                <a href="?quick_action=add_material">
+                    <i class="fa fa-plus-circle"></i>
+                    Thêm Nguyên Liệu
+                </a>
+                <a href="stock_in.php?quick_action=add_stock">
+                    <i class="fa fa-arrow-circle-down"></i>
+                    Nhập Kho
+                </a>
+                <a href="stock_out.php?quick_action=use_stock">
+                    <i class="fa fa-arrow-circle-up"></i>
+                    Xuất Kho
+                </a>
+                <a href="?export=materials">
+                    <i class="fa fa-file-excel"></i>
+                    Xuất Excel
+                </a>
+            </div>
+            
+            <!-- Dashboard Widgets -->
+            <div class="dashboard-widgets">
+                <!-- Low Stock Widget -->
+                <div class="widget">
+                    <h3>Sắp Hết Hàng</h3>
+                    <?php if ($low_stock_result->num_rows > 0): ?>
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Tên Nguyên Liệu</th>
+                                    <th>Tồn Kho</th>
+                                    <th>Đơn Vị</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php while ($material = $low_stock_result->fetch_assoc()): ?>
+                                    <tr>
+                                        <td><?php echo $material['material_name']; ?></td>
+                                        <td><strong><?php echo $material['stock_quantity']; ?></strong></td>
+                                        <td><?php echo $material['unit']; ?></td>
+                                    </tr>
+                                <?php endwhile; ?>
+                            </tbody>
+                        </table>
+                    <?php else: ?>
+                        <p>Không có nguyên liệu nào sắp hết.</p>
+                    <?php endif; ?>
+                </div>
+                
+                <!-- Recent Transactions Widget -->
+                <div class="widget">
+                    <h3>Nhập/Xuất Kho Gần Đây</h3>
+                    <?php if ($recent_transactions_result && $recent_transactions_result->num_rows > 0): ?>
+                        <?php while ($transaction = $recent_transactions_result->fetch_assoc()): ?>
+                            <div class="transaction-item">
+                                <div>
+                                    <span class="transaction-badge <?php echo $transaction['badge_class']; ?>">
+                                        <?php echo $transaction['transaction_type']; ?>
+                                    </span>
+                                    <?php echo $transaction['material_name']; ?> - <?php echo $transaction['quantity']; ?> 
+                                </div>
+                                <div><?php echo date('d/m/Y H:i', strtotime($transaction['transaction_datetime'])); ?></div>
+                            </div>
+                        <?php endwhile; ?>
+                        <div style="margin-top: 10px; text-align: right;">
+                            <a href="stock_in.php">Xem tất cả giao dịch</a>
+                        </div>
+                    <?php else: ?>
+                        <p>Không có giao dịch gần đây.</p>
+                    <?php endif; ?>
+                </div>
+            </div>
+            
             <div class="row">
-                <!-- Left Column: Forms -->
+                <!-- Materials List -->
+                <div class="col-md-<?php echo $edit_material ? '8' : '12'; ?>">
+                    <div class="card">
+                        <h2>Danh Sách Nguyên Liệu</h2>
+                        <form method="GET" action="inventory.php" class="mb-3">
+                            <div class="row">
+                                <div class="col-md-5">
+                                    <label for="filter_supplier">Nhà Cung Cấp</label>
+                                    <select id="filter_supplier" name="filter_supplier" class="form-control">
+                                        <option value="0">-- Tất cả --</option>
+                                        <?php $suppliers_result->data_seek(0); while ($supplier = $suppliers_result->fetch_assoc()): ?>
+                                            <option value="<?php echo $supplier['supplier_id']; ?>" <?php echo $filter_supplier == $supplier['supplier_id'] ? 'selected' : ''; ?>>
+                                                <?php echo $supplier['supplier_name']; ?>
+                                            </option>
+                                        <?php endwhile; ?>
+                                    </select>
+                                </div>
+                                <div class="col-md-5">
+                                    <label for="filter_status">Trạng Thái</label>
+                                    <select id="filter_status" name="filter_status" class="form-control">
+                                        <option value="">-- Tất cả --</option>
+                                        <option value="Còn hàng" <?php echo $filter_status == 'Còn hàng' ? 'selected' : ''; ?>>Còn hàng</option>
+                                        <option value="Hết hàng" <?php echo $filter_status == 'Hết hàng' ? 'selected' : ''; ?>>Hết hàng</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-2">
+                                    <label>&nbsp;</label>
+                                    <button type="submit" class="btn btn-primary form-control">Lọc</button>
+                                </div>
+                            </div>
+                        </form>
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Tên Nguyên Liệu</th>
+                                    <th>Nhà Cung Cấp</th>
+                                    <th>Đơn Vị</th>
+                                    <th>Tồn Kho</th>
+                                    <th>Ngưỡng Cảnh Báo</th>
+                                    <th>Trạng Thái</th>
+                                    <th>Thao Tác</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php if ($materials_result->num_rows > 0): ?>
+                                    <?php while ($material = $materials_result->fetch_assoc()): ?>
+                                        <tr>
+                                            <td><?php echo $material['material_id']; ?></td>
+                                            <td><?php echo $material['material_name']; ?></td>
+                                            <td><?php echo $material['supplier_name']; ?></td>
+                                            <td><?php echo $material['unit']; ?></td>
+                                            <td>
+                                                <?php echo $material['stock_quantity']; ?>
+                                                <?php if ($material['stock_quantity'] < $material['low_stock_threshold']): ?>
+                                                    <span class="badge badge-warning">Sắp hết</span>
+                                                <?php endif; ?>
+                                            </td>
+                                            <td><?php echo $material['low_stock_threshold']; ?></td>
+                                            <td>
+                                                <span class="status-badge-supplier status-<?php echo strtolower(str_replace(' ', '-', htmlspecialchars($material['status']))); ?>">
+                                                    <?php echo $material['status']; ?>
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <a href="?edit=<?php echo $material['material_id']; ?>" class="btn btn-sm btn-primary">Sửa</a>
+                                                <a href="stock_in.php?material_id=<?php echo $material['material_id']; ?>" class="btn btn-sm btn-success">Nhập Kho</a>
+                                                <a href="stock_out.php?material_id=<?php echo $material['material_id']; ?>" class="btn btn-sm btn-warning">Xuất Kho</a>
+                                            </td>
+                                        </tr>
+                                    <?php endwhile; ?>
+                                <?php else: ?>
+                                    <tr><td colspan="7" class="text-center">Không có nguyên liệu nào</td></tr>
+                                <?php endif; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <!-- Edit/Add Material Form -->
+                <?php if ($edit_material || isset($_GET['quick_action']) && $_GET['quick_action'] == 'add_material'): ?>
                 <div class="col-md-4">
                     <div class="card">
-                        <h2><?php echo $edit_material ? 'Cập Nhật Nguyên Vật Liệu' : 'Thêm Nguyên Vật Liệu Mới'; ?></h2>
+                        <h2><?php echo $edit_material ? 'Cập Nhật Nguyên Liệu' : 'Thêm Nguyên Liệu Mới'; ?></h2>
                         <form method="POST" action="inventory.php">
                             <?php if ($edit_material): ?>
                                 <input type="hidden" name="material_id" value="<?php echo $edit_material['material_id']; ?>">
                             <?php endif; ?>
                             <div class="form-group">
-                                <label for="material_name">Tên Nguyên Vật Liệu</label>
-                                <input type="text" id="material_name" name="material_name" value="<?php echo $edit_material ? $edit_material['material_name'] : ''; ?>" required>
+                                <label for="material_name">Tên Nguyên Liệu</label>
+                                <input type="text" id="material_name" name="material_name" class="form-control" value="<?php echo $edit_material ? $edit_material['material_name'] : ''; ?>" required>
                             </div>
                             <div class="form-group">
                                 <label for="supplier_id">Nhà Cung Cấp</label>
-                                <select id="supplier_id" name="supplier_id" required>
+                                <select id="supplier_id" name="supplier_id" class="form-control" required>
                                     <option value="">-- Chọn Nhà Cung Cấp --</option>
                                     <?php $suppliers_result->data_seek(0); while ($supplier = $suppliers_result->fetch_assoc()): ?>
                                         <option value="<?php echo $supplier['supplier_id']; ?>" <?php echo ($edit_material && $edit_material['supplier_id'] == $supplier['supplier_id']) ? 'selected' : ''; ?>>
@@ -359,247 +502,32 @@ if (isset($_GET['edit']) && is_numeric($_GET['edit'])) {
                             </div>
                             <div class="form-group">
                                 <label for="unit">Đơn Vị</label>
-                                <input type="text" id="unit" name="unit" value="<?php echo $edit_material ? $edit_material['unit'] : ''; ?>" required>
+                                <input type="text" id="unit" name="unit" class="form-control" value="<?php echo $edit_material ? $edit_material['unit'] : ''; ?>" required>
                             </div>
-                            <?php if (!$edit_material): ?>
-                                <div class="form-group">
-                                    <label for="stock_quantity">Số Lượng Tồn Ban Đầu</label>
-                                    <input type="number" id="stock_quantity" name="stock_quantity" min="0" value="0" required>
-                                </div>
-                            <?php endif; ?>
+                            <div class="form-group">
+                                <label for="stock_quantity">Số Lượng Tồn Kho</label>
+                                <input type="number" id="stock_quantity" name="stock_quantity" class="form-control" value="<?php echo isset($edit_material) ? $edit_material['stock_quantity'] : '0'; ?>" min="0" required>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="low_stock_threshold">Ngưỡng Cảnh Báo Sắp Hết Hàng</label>
+                                <input type="number" id="low_stock_threshold" name="low_stock_threshold" class="form-control" value="<?php echo isset($edit_material) ? $edit_material['low_stock_threshold'] : '10'; ?>" min="1" required>
+                                <small class="form-text text-muted">Khi số lượng tồn kho thấp hơn ngưỡng này, hệ thống sẽ hiển thị cảnh báo</small>
+                            </div>
+                            
                             <?php if ($edit_material): ?>
                                 <button type="submit" name="update_material" class="btn btn-primary btn-block">Cập Nhật</button>
                                 <a href="inventory.php" class="btn btn-secondary btn-block">Hủy</a>
                             <?php else: ?>
-                                <button type="submit" name="add_material" class="btn btn-primary btn-block">Thêm Nguyên Vật Liệu</button>
+                                <button type="submit" name="add_material" class="btn btn-primary btn-block">Thêm Nguyên Liệu</button>
+                                <a href="inventory.php" class="btn btn-secondary btn-block">Hủy</a>
                             <?php endif; ?>
                         </form>
                     </div>
-
-                    <div class="card mt-3">
-                        <h2>Nhập Kho</h2>
-                        <form method="POST" action="inventory.php">
-                            <div class="form-group">
-                                <label for="entry_supplier_id">Nhà Cung Cấp</label>
-                                <select id="entry_supplier_id" name="supplier_id" required>
-                                    <option value="">-- Chọn Nhà Cung Cấp --</option>
-                                    <?php $suppliers_result->data_seek(0); while ($supplier = $suppliers_result->fetch_assoc()): ?>
-                                        <option value="<?php echo $supplier['supplier_id']; ?>"><?php echo $supplier['supplier_name']; ?></option>
-                                    <?php endwhile; ?>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label for="entry_material_id">Nguyên Vật Liệu</label>
-                                <select id="entry_material_id" name="material_id" required>
-                                    <option value="">-- Chọn Nguyên Vật Liệu --</option>
-                                    <?php $materials_result->data_seek(0); while ($material = $materials_result->fetch_assoc()): ?>
-                                        <option value="<?php echo $material['material_id']; ?>"><?php echo $material['material_name']; ?></option>
-                                    <?php endwhile; ?>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label for="quantity">Số Lượng</label>
-                                <input type="number" id="quantity" name="quantity" min="1" required>
-                            </div>
-                            <div class="form-group">
-                                <label for="cost_price">Đơn Giá</label>
-                                <input type="number" id="cost_price" name="cost_price" min="0" step="1000" required>
-                            </div>
-                            <button type="submit" name="add_entry" class="btn btn-primary btn-block">Nhập Kho</button>
-                        </form>
-                    </div>
-
-                    <div class="card mt-3">
-                        <h2>Xuất Kho</h2>
-                        <form method="POST" action="inventory.php">
-                            <div class="form-group">
-                                <label for="usage_material_id">Nguyên Vật Liệu</label>
-                                <select id="usage_material_id" name="material_id" required>
-                                    <option value="">-- Chọn Nguyên Vật Liệu --</option>
-                                    <?php $materials_result->data_seek(0); while ($material = $materials_result->fetch_assoc()): ?>
-                                        <option value="<?php echo $material['material_id']; ?>"><?php echo $material['material_name']; ?></option>
-                                    <?php endwhile; ?>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label for="quantity_used">Số Lượng Xuất</label>
-                                <input type="number" id="quantity_used" name="quantity_used" min="1" required>
-                            </div>
-                            <div class="form-group">
-                                <label for="shift_id">Ca Làm Việc</label>
-                                <input type="number" id="shift_id" name="shift_id" min="1" required placeholder="Nhập ID ca làm việc">
-                            </div>
-                            <div class="form-group">
-                                <label for="note">Ghi Chú</label>
-                                <textarea id="note" name="note" rows="2"></textarea>
-                            </div>
-                            <button type="submit" name="add_usage" class="btn btn-primary btn-block">Xuất Kho</button>
-                        </form>
-                    </div>
                 </div>
-                
-                <!-- Right Column: Tabs -->
-                <div class="col-md-8">
-                    <div class="tabs">
-                        <button class="tablinks active" onclick="showTab('materials')">Nguyên Vật Liệu</button>
-                        <button class="tablinks" onclick="showTab('history')">Lịch Sử Nhập/Xuất</button>
-                    </div>
-
-                    <!-- Materials Tab -->
-                    <div id="materials" class="tab-content active">
-                        <div class="card">
-                            <h2>Danh Sách Nguyên Vật Liệu <a href="inventory.php?export=materials" class="btn btn-success btn-sm export-btn">Xuất Excel</a></h2>
-                            <form method="GET" action="inventory.php" class="mb-3">
-                                <div class="row">
-                                    <div class="col-md-6">
-                                        <label for="filter_supplier">Lọc theo Nhà Cung Cấp</label>
-                                        <select id="filter_supplier" name="filter_supplier" onchange="this.form.submit()">
-                                            <option value="0">-- Tất cả --</option>
-                                            <?php $suppliers_result->data_seek(0); while ($supplier = $suppliers_result->fetch_assoc()): ?>
-                                                <option value="<?php echo $supplier['supplier_id']; ?>" <?php echo $filter_supplier == $supplier['supplier_id'] ? 'selected' : ''; ?>>
-                                                    <?php echo $supplier['supplier_name']; ?>
-                                                </option>
-                                            <?php endwhile; ?>
-                                        </select>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <label for="filter_status">Lọc theo Trạng Thái</label>
-                                        <select id="filter_status" name="filter_status" onchange="this.form.submit()">
-                                            <option value="">-- Tất cả --</option>
-                                            <option value="Còn hàng" <?php echo $filter_status == 'Còn hàng' ? 'selected' : ''; ?>>Còn hàng</option>
-                                            <option value="Hết hàng" <?php echo $filter_status == 'Hết hàng' ? 'selected' : ''; ?>>Hết hàng</option>
-                                        </select>
-                                    </div>
-                                </div>
-                            </form>
-                            <table class="table">
-                                <thead>
-                                    <tr>
-                                        <th>ID</th>
-                                        <th>Tên</th>
-                                        <th>Nhà Cung Cấp</th>
-                                        <th>Đơn Vị</th>
-                                        <th>Tồn Kho</th>
-                                        <th>Trạng Thái</th>
-                                        <th>Thao Tác</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <?php if ($materials_result->num_rows > 0): ?>
-                                        <?php while ($material = $materials_result->fetch_assoc()): ?>
-                                            <tr>
-                                                <td><?php echo $material['material_id']; ?></td>
-                                                <td><?php echo $material['material_name']; ?></td>
-                                                <td><?php echo $material['supplier_name']; ?></td>
-                                                <td><?php echo $material['unit']; ?></td>
-                                                <td><?php echo $material['stock_quantity']; ?></td>
-                                                <td><span class="status-badge status-<?php echo strtolower(str_replace(' ', '-', $material['status'])); ?>"><?php echo $material['status']; ?></span></td>
-                                                <td>
-                                                    <a href="inventory.php?edit=<?php echo $material['material_id']; ?>" class="btn btn-secondary btn-sm">Sửa</a>
-                                                    <form method="POST" action="inventory.php" style="display:inline;" onsubmit="return confirm('Bạn có chắc muốn xóa nguyên vật liệu này?');">
-                                                        <input type="hidden" name="material_id" value="<?php echo $material['material_id']; ?>">
-                                                        <button type="submit" name="delete_material" class="btn btn-danger btn-sm">Xóa</button>
-                                                    </form>
-                                                </td>
-                                            </tr>
-                                        <?php endwhile; ?>
-                                    <?php else: ?>
-                                        <tr><td colspan="7" class="text-center">Không có nguyên vật liệu nào</td></tr>
-                                    <?php endif; ?>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    <!-- History Tab -->
-                    <div id="history" class="tab-content">
-                        <div class="card">
-                            <h2>Lịch Sử Nhập Kho <a href="inventory.php?export=entries" class="btn btn-success btn-sm export-btn">Xuất Excel</a></h2>
-                            <table class="table">
-                                <thead>
-                                    <tr>
-                                        <th>ID</th>
-                                        <th>Nguyên Vật Liệu</th>
-                                        <th>Nhà Cung Cấp</th>
-                                        <th>Số Lượng</th>
-                                        <th>Đơn Giá</th>
-                                        <th>Tổng Chi Phí</th>
-                                        <th>Thời Gian</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <?php if ($entries_result->num_rows > 0): ?>
-                                        <?php while ($entry = $entries_result->fetch_assoc()): ?>
-                                            <tr>
-                                                <td><?php echo $entry['entry_id']; ?></td>
-                                                <td><?php echo $entry['material_name']; ?></td>
-                                                <td><?php echo $entry['supplier_name']; ?></td>
-                                                <td><?php echo $entry['quantity']; ?></td>
-                                                <td><?php echo formatCurrency($entry['cost_price']); ?></td>
-                                                <td><?php echo formatCurrency($entry['total_cost']); ?></td>
-                                                <td><?php echo date('d/m/Y H:i', strtotime($entry['entry_datetime'])); ?></td>
-                                            </tr>
-                                        <?php endwhile; ?>
-                                    <?php else: ?>
-                                        <tr><td colspan="7" class="text-center">Không có lịch sử nhập kho</td></tr>
-                                    <?php endif; ?>
-                                </tbody>
-                            </table>
-                            <div class="pagination">
-                                <?php for ($i = 1; $i <= $entries_total_pages; $i++): ?>
-                                    <a href="inventory.php?entries_page=<?php echo $i; ?>" class="<?php echo $i == $entries_page ? 'active' : ''; ?>"><?php echo $i; ?></a>
-                                <?php endfor; ?>
-                            </div>
-                        </div>
-                        <div class="card mt-3">
-                            <h2>Lịch Sử Xuất Kho <a href="inventory.php?export=usages" class="btn btn-success btn-sm export-btn">Xuất Excel</a></h2>
-                            <table class="table">
-                                <thead>
-                                    <tr>
-                                        <th>ID</th>
-                                        <th>Nguyên Vật Liệu</th>
-                                        <th>Số Lượng</th>
-                                        <th>Ca Làm Việc</th>
-                                        <th>Thời Gian</th>
-                                        <th>Ghi Chú</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <?php if ($usages_result->num_rows > 0): ?>
-                                        <?php while ($usage = $usages_result->fetch_assoc()): ?>
-                                            <tr>
-                                                <td><?php echo $usage['usage_id']; ?></td>
-                                                <td><?php echo $usage['material_name']; ?></td>
-                                                <td><?php echo $usage['quantity_used']; ?></td>
-                                                <td><?php echo $usage['shift_id']; ?></td>
-                                                <td><?php echo date('d/m/Y H:i', strtotime($usage['usage_date'])); ?></td>
-                                                <td><?php echo $usage['note']; ?></td>
-                                            </tr>
-                                        <?php endwhile; ?>
-                                    <?php else: ?>
-                                        <tr><td colspan="6" class="text-center">Không có lịch sử xuất kho</td></tr>
-                                    <?php endif; ?>
-                                </tbody>
-                            </table>
-                            <div class="pagination">
-                                <?php for ($i = 1; $i <= $usages_total_pages; $i++): ?>
-                                    <a href="inventory.php?usages_page=<?php echo $i; ?>" class="<?php echo $i == $usages_page ? 'active' : ''; ?>"><?php echo $i; ?></a>
-                                <?php endfor; ?>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                <?php endif; ?>
             </div>
         </div>
     </div>
-
-    <script>
-        function showTab(tabId) {
-            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
-            document.querySelectorAll('.tablinks').forEach(btn => btn.classList.remove('active'));
-            document.getElementById(tabId).classList.add('active');
-            document.querySelector(`button[onclick="showTab('${tabId}')"]`).classList.add('active');
-        }
-    </script>
 </body>
 </html>

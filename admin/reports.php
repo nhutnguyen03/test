@@ -124,14 +124,171 @@ $profit_reports_stmt->bind_param("ii", $filter_month, $filter_year);
 $profit_reports_stmt->execute();
 $profit_reports_result = $profit_reports_stmt->get_result();
 
-// Data for Profit Chart
-$yearly_profit_data = [];
-for ($i = $filter_year - 4; $i <= $filter_year; $i++) {
-    $query = "SELECT net_profit FROM Profit_Reports WHERE year = $i AND month = $filter_month";
-    $result = $conn->query($query);
-    $row = $result->fetch_assoc();
-    $yearly_profit_data[$i] = $row && $row['net_profit'] !== null ? (float)$row['net_profit'] : 0;
+// Xử lý khi chọn tháng/năm cho báo cáo lợi nhuận
+if (isset($_POST['profit_month']) && isset($_POST['profit_year'])) {
+    $selected_month = $_POST['profit_month'];
+    $selected_year = $_POST['profit_year'];
+} else {
+    $selected_month = date('m');
+    $selected_year = date('Y');
 }
+
+// Thêm chức năng tự động lưu báo cáo tháng trước khi chưa được lưu
+$last_month = date('m', strtotime('last month'));
+$last_month_year = date('Y', strtotime('last month'));
+
+// Kiểm tra xem tháng trước đã có báo cáo chưa
+$check_last_month_query = "SELECT COUNT(*) FROM Profit_Reports WHERE month = '$last_month' AND year = '$last_month_year'";
+$check_last_month_result = $conn->query($check_last_month_query);
+$last_month_exists = $check_last_month_result->fetch_row()[0];
+
+// Nếu tháng trước chưa có báo cáo, tự động tạo và lưu
+if ($last_month_exists == 0) {
+    // Tính toán dữ liệu cho tháng trước
+    $last_month_revenue_query = "SELECT SUM(total_price) as total_revenue, COUNT(*) as total_orders 
+                               FROM Orders 
+                               WHERE MONTH(order_time) = '$last_month' 
+                               AND YEAR(order_time) = '$last_month_year' 
+                               AND status IN ('Đã thanh toán', 'Hoàn thành')";
+    $last_month_revenue_result = $conn->query($last_month_revenue_query);
+    $last_month_revenue_data = $last_month_revenue_result->fetch_assoc();
+    $last_month_total_revenue = $last_month_revenue_data['total_revenue'] ?: 0;
+    $last_month_total_orders = $last_month_revenue_data['total_orders'] ?: 0;
+    
+    // Tính tổng chi phí từ các giao dịch nhập kho
+    $last_month_cost_query = "SELECT SUM(total_amount) as total_cost 
+                            FROM Stock_Transactions 
+                            WHERE MONTH(transaction_datetime) = '$last_month' 
+                            AND YEAR(transaction_datetime) = '$last_month_year' 
+                            AND transaction_type = 'Nhập'";
+    $last_month_cost_result = $conn->query($last_month_cost_query);
+    $last_month_cost_data = $last_month_cost_result->fetch_assoc();
+    $last_month_total_cost = $last_month_cost_data['total_cost'] ?: 0;
+    
+    // Nếu có dữ liệu (có doanh thu hoặc chi phí), lưu báo cáo
+    if ($last_month_total_revenue > 0 || $last_month_total_cost > 0) {
+        $insert_last_month_query = "INSERT INTO Profit_Reports (month, year, total_revenue, total_cost, total_orders) 
+                                  VALUES ('$last_month', '$last_month_year', '$last_month_total_revenue', '$last_month_total_cost', '$last_month_total_orders')";
+        $conn->query($insert_last_month_query);
+        $_SESSION['report_success'] = "Đã tự động tạo báo cáo lợi nhuận cho tháng $last_month/$last_month_year";
+    }
+}
+
+// Tự động cập nhật báo cáo tháng hiện tại nếu có thông báo là vừa nhập kho
+$auto_update_report = false;
+if (isset($_SESSION['stock_in_success'])) {
+    $_SESSION['report_success'] = updateCurrentMonthProfitReport($conn);
+    unset($_SESSION['stock_in_success']);
+    $auto_update_report = true;
+}
+
+// Cập nhật báo cáo cho tháng hiện tại nếu truy cập vào trang reports.php
+if (!$auto_update_report) {
+    updateCurrentMonthProfitReport($conn);
+}
+
+// Truy vấn báo cáo lợi nhuận cho tháng/năm đã chọn
+$profit_reports_query = "SELECT * FROM Profit_Reports WHERE month = '$selected_month' AND year = '$selected_year'";
+$profit_reports_result = $conn->query($profit_reports_query);
+
+// Tự động tính toán dữ liệu cho báo cáo lợi nhuận nếu không có báo cáo đã lưu
+if ($profit_reports_result->num_rows == 0) {
+    // Tính tổng doanh thu từ các đơn hàng hoàn thành trong tháng/năm đã chọn
+    $revenue_query = "SELECT SUM(total_price) as total_revenue, COUNT(*) as total_orders 
+                     FROM Orders 
+                     WHERE MONTH(order_time) = '$selected_month' 
+                     AND YEAR(order_time) = '$selected_year' 
+                     AND status IN ('Đã thanh toán', 'Hoàn thành')";
+    $revenue_result = $conn->query($revenue_query);
+    $revenue_data = $revenue_result->fetch_assoc();
+    $total_revenue = $revenue_data['total_revenue'] ?: 0;
+    $total_orders = $revenue_data['total_orders'] ?: 0;
+    
+    // Tính tổng chi phí từ các giao dịch nhập kho trong tháng/năm đã chọn
+    $cost_query = "SELECT SUM(total_amount) as total_cost 
+                  FROM Stock_Transactions 
+                  WHERE MONTH(transaction_datetime) = '$selected_month' 
+                  AND YEAR(transaction_datetime) = '$selected_year' 
+                  AND transaction_type = 'Nhập'";
+    $cost_result = $conn->query($cost_query);
+    $cost_data = $cost_result->fetch_assoc();
+    $total_cost = $cost_data['total_cost'] ?: 0;
+    
+    // Tính lợi nhuận
+    $net_profit = $total_revenue - $total_cost;
+    
+    // Tạo mảng báo cáo tự động
+    $auto_profit_report = [
+        'report_id' => 'Auto',
+        'month' => $selected_month,
+        'year' => $selected_year,
+        'total_revenue' => $total_revenue,
+        'total_cost' => $total_cost,
+        'total_orders' => $total_orders,
+        'net_profit' => $net_profit
+    ];
+}
+
+// Lấy dữ liệu cho biểu đồ lợi nhuận 12 tháng gần nhất
+$chart_data = [];
+$current_month = date('m');
+$current_year = date('Y');
+
+for ($i = 0; $i < 12; $i++) {
+    $month = $current_month - $i;
+    $year = $current_year;
+    
+    // Điều chỉnh tháng và năm nếu cần
+    if ($month <= 0) {
+        $month += 12;
+        $year -= 1;
+    }
+    
+    // Kiểm tra xem có báo cáo đã lưu không
+    $chart_query = "SELECT * FROM Profit_Reports WHERE month = '$month' AND year = '$year'";
+    $chart_result = $conn->query($chart_query);
+    
+    if ($chart_result->num_rows > 0) {
+        $chart_report = $chart_result->fetch_assoc();
+        $chart_data[] = [
+            'month' => $month . '/' . $year,
+            'revenue' => $chart_report['total_revenue'],
+            'cost' => $chart_report['total_cost'],
+            'profit' => $chart_report['net_profit']
+        ];
+    } else {
+        // Tính toán tự động nếu không có báo cáo
+        $chart_revenue_query = "SELECT SUM(total_price) as total_revenue 
+                               FROM Orders 
+                               WHERE MONTH(order_time) = '$month' 
+                               AND YEAR(order_time) = '$year' 
+                               AND status IN ('Đã thanh toán', 'Hoàn thành')";
+        $chart_revenue_result = $conn->query($chart_revenue_query);
+        $chart_revenue_data = $chart_revenue_result->fetch_assoc();
+        $chart_total_revenue = $chart_revenue_data['total_revenue'] ?: 0;
+        
+        $chart_cost_query = "SELECT SUM(total_amount) as total_cost 
+                            FROM Stock_Transactions 
+                            WHERE MONTH(transaction_datetime) = '$month' 
+                            AND YEAR(transaction_datetime) = '$year' 
+                            AND transaction_type = 'Nhập'";
+        $chart_cost_result = $conn->query($chart_cost_query);
+        $chart_cost_data = $chart_cost_result->fetch_assoc();
+        $chart_total_cost = $chart_cost_data['total_cost'] ?: 0;
+        
+        $chart_net_profit = $chart_total_revenue - $chart_total_cost;
+        
+        $chart_data[] = [
+            'month' => $month . '/' . $year,
+            'revenue' => $chart_total_revenue,
+            'cost' => $chart_total_cost,
+            'profit' => $chart_net_profit
+        ];
+    }
+}
+
+// Đảo ngược mảng để hiển thị từ tháng cũ đến tháng mới
+$chart_data = array_reverse($chart_data);
 
 // Auto-generate reports from Orders
 if (isset($_GET['generate'])) {
@@ -204,10 +361,12 @@ if (isset($_GET['generate'])) {
         if ($profit_result->num_rows > 0) {
             $profit_data = $profit_result->fetch_assoc();
             
-            // Get total costs for this month (from stock entries)
-            $cost_query = "SELECT COALESCE(SUM(total_cost), 0) AS total_cost 
-                        FROM Stock_Entries 
-                        WHERE MONTH(entry_datetime) = ? AND YEAR(entry_datetime) = ?";
+            // Get total costs for this month (from stock transactions)
+            $cost_query = "SELECT COALESCE(SUM(total_amount), 0) AS total_cost 
+                        FROM Stock_Transactions 
+                        WHERE transaction_type = 'Nhập' 
+                        AND MONTH(transaction_datetime) = ? 
+                        AND YEAR(transaction_datetime) = ?";
             $cost_stmt = $conn->prepare($cost_query);
             $cost_stmt->bind_param("ii", $filter_month, $filter_year);
             $cost_stmt->execute();
@@ -221,10 +380,42 @@ if (isset($_GET['generate'])) {
             $_SESSION['report_type'] = 'profit';
             header("Location: reports.php?filter_type=profit&filter_month=$filter_month&filter_year=$filter_year&preview=1");
         } else {
-            $_SESSION['report_success'] = "Không có dữ liệu doanh thu cho tháng $filter_month/$filter_year!";
-            header("Location: reports.php?filter_type=profit&filter_month=$filter_month&filter_year=$filter_year");
+            // Không có đơn hàng, tạo báo cáo trống
+            $empty_profit_data = [
+                'report_month' => $filter_month,
+                'report_year' => $filter_year,
+                'total_revenue' => 0,
+                'total_orders' => 0,
+                'total_cost' => 0,
+                'net_profit' => 0
+            ];
+            
+            // Lấy chi phí nếu có (vẫn có thể có chi phí nhập hàng mà không có đơn hàng)
+            $cost_query = "SELECT COALESCE(SUM(total_amount), 0) AS total_cost 
+                        FROM Stock_Transactions 
+                        WHERE transaction_type = 'Nhập' 
+                        AND MONTH(transaction_datetime) = ? 
+                        AND YEAR(transaction_datetime) = ?";
+            $cost_stmt = $conn->prepare($cost_query);
+            $cost_stmt->bind_param("ii", $filter_month, $filter_year);
+            $cost_stmt->execute();
+            $cost_result = $cost_stmt->get_result();
+            $cost_data = $cost_result->fetch_assoc();
+            
+            if ($cost_data && $cost_data['total_cost'] > 0) {
+                $empty_profit_data['total_cost'] = $cost_data['total_cost'];
+                $empty_profit_data['net_profit'] = -$cost_data['total_cost']; // Lợi nhuận âm vì chỉ có chi phí
+                
+                $_SESSION['temp_report_data'] = $empty_profit_data;
+                $_SESSION['report_type'] = 'profit';
+                header("Location: reports.php?filter_type=profit&filter_month=$filter_month&filter_year=$filter_year&preview=1");
+            } else {
+                // Không có dữ liệu gì cả
+                $_SESSION['report_error'] = "Không có dữ liệu đơn hàng hoặc chi phí cho tháng $filter_month/$filter_year";
+                header("Location: reports.php?filter_type=profit&filter_month=$filter_month&filter_year=$filter_year");
+            }
+            exit;
         }
-        exit;
     }
 }
 
@@ -272,18 +463,18 @@ if (isset($_GET['save_report'])) {
         
         // For daily report, we need to insert for all shifts of that day
         $shift_query = "SELECT shift_id 
-                        FROM Orders 
+                    FROM Orders 
                         WHERE DATE(order_time) = ? AND status IN ('Đã thanh toán', 'Hoàn thành')
                         GROUP BY shift_id";
-        $shift_stmt = $conn->prepare($shift_query);
-        $shift_stmt->bind_param("s", $filter_date);
-        $shift_stmt->execute();
-        $shift_result = $shift_stmt->get_result();
-        
+    $shift_stmt = $conn->prepare($shift_query);
+    $shift_stmt->bind_param("s", $filter_date);
+    $shift_stmt->execute();
+    $shift_result = $shift_stmt->get_result();
+    
         $reports_saved = 0;
         while ($shift = $shift_result->fetch_assoc()) {
             // Check if report already exists
-            $check_query = "SELECT COUNT(*) FROM Revenue_Reports WHERE shift_id = ? AND report_date = ?";
+        $check_query = "SELECT COUNT(*) FROM Revenue_Reports WHERE shift_id = ? AND report_date = ?";
             $check_stmt = $conn->prepare($check_query);
             $check_stmt->bind_param("is", $shift['shift_id'], $filter_date);
             $check_stmt->execute();
@@ -372,8 +563,14 @@ if (isset($_GET['save_report'])) {
 
 // Export to Excel
 if (isset($_GET['export'])) {
+    // Đặt header cho UTF-8
+    header('Content-Type: text/html; charset=utf-8');
     header('Content-Type: application/vnd.ms-excel');
     header('Content-Disposition: attachment; filename="' . $_GET['export'] . '_report_' . date('Ymd') . '.xls"');
+    header('Cache-Control: max-age=0');
+    
+    // Tạo BOM (Byte Order Mark) để Excel nhận dạng UTF-8
+    echo chr(239) . chr(187) . chr(191);
     
     if ($_GET['export'] == 'shift') {
         echo "ID\tCa Làm Việc\tDoanh Thu\tTiền mặt\tThẻ\tMoMo\tKhác\tSố Đơn Hàng\tNgày Báo Cáo\n";
@@ -471,6 +668,56 @@ if (isset($_GET['export'])) {
         }
     }
     exit;
+}
+
+// Thêm hàm tự động cập nhật báo cáo lợi nhuận khi vừa nhập kho
+function updateCurrentMonthProfitReport($conn) {
+    $current_month = date('m');
+    $current_year = date('Y');
+    
+    // Tính tổng doanh thu từ các đơn hàng hoàn thành trong tháng hiện tại
+    $revenue_query = "SELECT SUM(total_price) as total_revenue, COUNT(*) as total_orders 
+                     FROM Orders 
+                     WHERE MONTH(order_time) = '$current_month' 
+                     AND YEAR(order_time) = '$current_year' 
+                     AND status IN ('Đã thanh toán', 'Hoàn thành')";
+    $revenue_result = $conn->query($revenue_query);
+    $revenue_data = $revenue_result->fetch_assoc();
+    $total_revenue = $revenue_data['total_revenue'] ?: 0;
+    $total_orders = $revenue_data['total_orders'] ?: 0;
+    
+    // Tính tổng chi phí từ các giao dịch nhập kho trong tháng hiện tại
+    $cost_query = "SELECT SUM(total_amount) as total_cost 
+                  FROM Stock_Transactions 
+                  WHERE MONTH(transaction_datetime) = '$current_month' 
+                  AND YEAR(transaction_datetime) = '$current_year' 
+                  AND transaction_type = 'Nhập'";
+    $cost_result = $conn->query($cost_query);
+    $cost_data = $cost_result->fetch_assoc();
+    $total_cost = $cost_data['total_cost'] ?: 0;
+    
+    // Kiểm tra xem đã có báo cáo cho tháng hiện tại chưa
+    $check_query = "SELECT COUNT(*) as report_count FROM Profit_Reports 
+                   WHERE month = '$current_month' AND year = '$current_year'";
+    $check_result = $conn->query($check_query);
+    $report_exists = $check_result->fetch_assoc()['report_count'] > 0;
+    
+    if ($report_exists) {
+        // Cập nhật báo cáo hiện có
+        $update_query = "UPDATE Profit_Reports 
+                        SET total_revenue = '$total_revenue', 
+                            total_cost = '$total_cost', 
+                            total_orders = '$total_orders' 
+                        WHERE month = '$current_month' AND year = '$current_year'";
+        $conn->query($update_query);
+        return "Đã cập nhật báo cáo lợi nhuận tháng $current_month/$current_year";
+    } else {
+        // Tạo báo cáo mới
+        $insert_query = "INSERT INTO Profit_Reports (month, year, total_revenue, total_cost, total_orders) 
+                        VALUES ('$current_month', '$current_year', '$total_revenue', '$total_cost', '$total_orders')";
+        $conn->query($insert_query);
+        return "Đã tạo báo cáo lợi nhuận tháng $current_month/$current_year";
+    }
 }
 ?>
 
@@ -953,6 +1200,21 @@ if (isset($_GET['export'])) {
                                         <td><?php echo formatCurrency($report['net_profit']); ?></td>
                                     </tr>
                                 <?php endwhile; ?>
+                            <?php elseif (isset($auto_profit_report)): ?>
+                                <tr>
+                                    <td><?php echo $auto_profit_report['report_id']; ?></td>
+                                    <td><?php echo $auto_profit_report['month']; ?></td>
+                                    <td><?php echo $auto_profit_report['year']; ?></td>
+                                    <td><?php echo formatCurrency($auto_profit_report['total_revenue']); ?></td>
+                                    <td><?php echo formatCurrency($auto_profit_report['total_cost']); ?></td>
+                                    <td><?php echo $auto_profit_report['total_orders']; ?></td>
+                                    <td><?php echo formatCurrency($auto_profit_report['net_profit']); ?></td>
+                                </tr>
+                                <tr>
+                                    <td colspan="7" class="text-center text-muted">
+                                        <small>* Báo cáo này được tính toán tự động và chưa được lưu. Nhấn nút "Tạo Báo Cáo" để lưu vào cơ sở dữ liệu.</small>
+                                    </td>
+                                </tr>
                             <?php else: ?>
                                 <tr><td colspan="7" class="text-center">Không có báo cáo lợi nhuận cho tháng/năm này</td></tr>
                             <?php endif; ?>
@@ -964,6 +1226,16 @@ if (isset($_GET['export'])) {
         </div>
     </div>
 
+    <!-- Biểu đồ Báo Cáo Lợi Nhuận -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">Biểu Đồ Lợi Nhuận 12 Tháng Gần Nhất</h5>
+        </div>
+        <div class="card-body">
+            <canvas id="profitChart" width="100%" height="40"></canvas>
+        </div>
+    </div>
+
     <script>
         function showTab(tabId) {
             document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
@@ -972,25 +1244,101 @@ if (isset($_GET['export'])) {
             document.querySelector(`button[onclick="showTab('${tabId}')"]`).classList.add('active');
         }
 
-        // Profit Chart
-        const profitCtx = document.getElementById('profitChart').getContext('2d');
-        new Chart(profitCtx, {
-            type: 'line',
-            data: {
-                labels: <?php echo json_encode(array_keys($yearly_profit_data)); ?>,
-                datasets: [{
-                    label: 'Lợi Nhuận Theo Năm (Tháng <?php echo $filter_month; ?>)',
-                    data: <?php echo json_encode(array_values($yearly_profit_data)); ?>,
-                    fill: false,
-                    borderColor: 'rgb(75, 192, 192)',
-                    tension: 0.1
-                }]
-            },
-            options: {
-                scales: {
-                    y: { beginAtZero: true }
+        // Biểu đồ lợi nhuận
+        function initProfitChart(chartData) {
+            var ctx = document.getElementById('profitChart').getContext('2d');
+            
+            // Chuẩn bị dữ liệu
+            var labels = [];
+            var revenueData = [];
+            var costData = [];
+            var profitData = [];
+            
+            chartData.forEach(function(item) {
+                labels.push(item.month);
+                revenueData.push(item.revenue);
+                costData.push(item.cost);
+                profitData.push(item.profit);
+            });
+            
+            var profitChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Doanh thu',
+                            data: revenueData,
+                            backgroundColor: 'rgba(75, 192, 192, 0.6)',
+                            borderColor: 'rgba(75, 192, 192, 1)',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Chi phí',
+                            data: costData,
+                            backgroundColor: 'rgba(255, 99, 132, 0.6)',
+                            borderColor: 'rgba(255, 99, 132, 1)',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Lợi nhuận',
+                            data: profitData,
+                            backgroundColor: 'rgba(54, 162, 235, 0.6)',
+                            borderColor: 'rgba(54, 162, 235, 1)',
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        x: {
+                            grid: {
+                                display: false
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return formatCurrency(value);
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    var label = context.dataset.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    label += formatCurrency(context.raw);
+                                    return label;
+                                }
+                            }
+                        },
+                        legend: {
+                            position: 'top'
+                        },
+                        title: {
+                            display: true,
+                            text: 'Doanh thu, Chi phí và Lợi nhuận 12 tháng gần nhất'
+                        }
+                    }
                 }
-            }
+            });
+        }
+
+        // Format currency
+        function formatCurrency(value) {
+            return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // Khởi tạo biểu đồ lợi nhuận khi DOM đã sẵn sàng
+            initProfitChart(<?php echo json_encode($chart_data); ?>);
         });
     </script>
 </body>

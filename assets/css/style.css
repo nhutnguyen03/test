@@ -79,6 +79,15 @@ ul {
     background-color: #e68a00;
 }
 
+.btn-success {
+    background-color: #00ccff;
+    color: white;
+}
+
+.btn-success:hover {
+    background-color: #00d7e6;
+}
+
 .btn-block {
     display: block;
     width: 100%;
@@ -977,32 +986,21 @@ ul {
 
 /* Add status badge styles */
 .status-badge {
-    padding: 4px 8px;
+    padding: 5px 10px;
     border-radius: 4px;
     font-weight: bold;
-    color: white;
+    color: white !important;
     font-size: 12px;
     display: inline-block;
 }
 
-.status-chờ-chế-biến {
-    background-color: #FF9800; /* Orange */
+/* Đặt tên class theo đúng giá trị từ database */
+.status-còn-hàng {
+    background-color: #28a745 !important;
 }
 
-.status-hoàn-thành {
-    background-color: #4CAF50; /* Green */
-}
-
-.status-chờ-thanh-toán {
-    background-color: #2196F3; /* Blue */
-}
-
-.status-đã-thanh-toán {
-    background-color: #673AB7; /* Purple */
-}
-
-.status-đã-hủy {
-    background-color: #F44336; /* Red */
+.status-hết-hàng {
+    background-color: #dc3545 !important;
 }
 
 /* Order Notes Section */
@@ -1046,4 +1044,127 @@ ul {
 .order-notes-section textarea::placeholder {
     color: #aaa;
     font-style: italic;
+}
+
+/* Badge styles */
+.badge {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: bold;
+    display: inline-block;
+}
+
+.badge-warning {
+    background-color: #ffc107;
+    color: #212529;
+}
+
+/* Button styles for inventory */
+.btn-sm {
+    padding: 5px 10px !important;
+    font-size: 12px !important;
+    border-radius: 4px !important;
+    margin-right: 4px !important;
+}
+
+.btn-primary {
+    background-color: #007bff !important;
+    color: white !important;
+}
+
+.btn-primary:hover {
+    background-color: #0069d9 !important;
+}
+
+.btn-success {
+    background-color: #28a745 !important;
+    color: white !important;
+}
+
+.btn-success:hover {
+    background-color: #218838 !important;
+}
+
+.btn-warning {
+    background-color: #ffc107 !important;
+    color: #212529 !important;
+}
+
+.btn-warning:hover {
+    background-color: #e0a800 !important;
+}
+
+/* Ghi đè style cho nút và badge trong inventory */
+table .btn-sm {
+    display: inline-block;
+    padding: 5px 10px !important;
+    font-size: 12px !important;
+    border-radius: 4px !important;
+    margin-right: 4px !important;
+    text-decoration: none;
+}
+
+table .btn-primary {
+    background-color: #007bff !important;
+    color: white !important;
+    border: 1px solid #007bff !important;
+}
+
+table .btn-primary:hover {
+    background-color: #0069d9 !important;
+}
+
+table .btn-success {
+    background-color: #28a745 !important;
+    color: white !important;
+    border: 1px solid #28a745 !important;
+}
+
+table .btn-success:hover {
+    background-color: #218838 !important;
+}
+
+table .btn-warning {
+    background-color: #ffc107 !important;
+    color: #212529 !important;
+    border: 1px solid #ffc107 !important;
+}
+
+table .btn-warning:hover {
+    background-color: #e0a800 !important;
+}
+
+/* Sửa lại style cho status badge */
+.status-badge {
+    display: inline-block !important;
+    padding: 5px 10px !important;
+    border-radius: 4px !important;
+    font-weight: bold !important;
+    color: white !important;
+    font-size: 12px !important;
+}
+
+.status-còn-hàng {
+    background-color: #28a745 !important;
+    color: white !important;
+}
+
+.status-hết-hàng {
+    background-color: #dc3545 !important;
+    color: white !important;
+}
+
+/* Style cho badge sắp hết */
+.badge {
+    display: inline-block !important;
+    padding: 3px 6px !important;
+    border-radius: 3px !important;
+    font-size: 11px !important;
+    font-weight: bold !important;
+}
+
+.badge-warning {
+    background-color: #ffc107 !important;
+    color: #212529 !important;
 }
