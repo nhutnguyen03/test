@@ -986,21 +986,36 @@ ul {
 
 /* Add status badge styles */
 .status-badge {
-    padding: 5px 10px;
-    border-radius: 4px;
-    font-weight: bold;
+    display: inline-block !important;
+    padding: 5px 10px !important;
+    border-radius: 4px !important;
+    font-weight: bold !important;
+    font-size: 12px !important;
     color: white !important;
-    font-size: 12px;
-    display: inline-block;
 }
 
-/* Đặt tên class theo đúng giá trị từ database */
 .status-còn-hàng {
     background-color: #28a745 !important;
 }
 
 .status-hết-hàng {
     background-color: #dc3545 !important;
+}
+
+.status-hoàn-thành {
+    background-color: #4CAF50 !important;
+}
+
+.status-chờ-chế-biến {
+    background-color: #2196F3 !important;
+}
+
+.status-đã-thanh-toán {
+    background-color: #9C27B0 !important;
+}
+
+.status-đã-hủy {
+    background-color: #F44336 !important;
 }
 
 /* Order Notes Section */
@@ -1133,26 +1148,6 @@ table .btn-warning {
 
 table .btn-warning:hover {
     background-color: #e0a800 !important;
-}
-
-/* Sửa lại style cho status badge */
-.status-badge {
-    display: inline-block !important;
-    padding: 5px 10px !important;
-    border-radius: 4px !important;
-    font-weight: bold !important;
-    color: white !important;
-    font-size: 12px !important;
-}
-
-.status-còn-hàng {
-    background-color: #28a745 !important;
-    color: white !important;
-}
-
-.status-hết-hàng {
-    background-color: #dc3545 !important;
-    color: white !important;
 }
 
 /* Style cho badge sắp hết */

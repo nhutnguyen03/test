@@ -183,7 +183,7 @@ $shifts_result = $conn->query($shifts_query);
                 </form>
             </div>
             
-            <div class="alert alert-info workflow-info">
+            <!-- <div class="alert alert-info workflow-info">
                 <strong>Quy trình xử lý đơn hàng:</strong>
                 <ul>
                     <li><span class="status-badge status-chờ-chế-biến">Chờ chế biến</span> - Đơn hàng mới được tạo sau khi khách đã thanh toán, đang chờ pha chế</li>
@@ -191,7 +191,7 @@ $shifts_result = $conn->query($shifts_query);
                     <li><span class="status-badge status-đã-thanh-toán">Đã thanh toán</span> - Đơn hàng đã được tạo và thanh toán (xử lý qua POS)</li>
                     <li><span class="status-badge status-đã-hủy">Đã hủy</span> - Đơn hàng đã bị hủy</li>
                 </ul>
-            </div>
+            </div> -->
             
             <div class="card">
                 <h2>Danh Sách Đơn Hàng</h2>

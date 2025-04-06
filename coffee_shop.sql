@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Máy chủ: 127.0.0.1
--- Thời gian đã tạo: Th4 01, 2025 lúc 02:56 PM
+-- Thời gian đã tạo: Th4 06, 2025 lúc 02:47 PM
 -- Phiên bản máy phục vụ: 10.4.32-MariaDB
 -- Phiên bản PHP: 8.2.12
 
@@ -102,22 +102,22 @@ INSERT INTO `orders` (`order_id`, `user_id`, `table_id`, `shift_id`, `promo_id`,
 (16, 1, 'TB2', 1, NULL, 25000.00, '2025-03-20 10:04:22', 'Hoàn thành', ' | ', 0),
 (17, 1, 'TB2', 1, 1, 65000.00, '2025-03-21 13:37:27', 'Hoàn thành', ' | ', 0),
 (18, 1, 'TB3', 1, NULL, 25000.00, '2025-03-21 13:38:03', 'Hoàn thành', ' | ', 0),
-(19, NULL, 'TB6', 1, NULL, 115000.00, '2025-03-23 08:13:49', 'Đã thanh toán', NULL, 0),
-(20, NULL, 'TB4', 1, NULL, 60000.00, '2025-03-23 09:26:30', 'Đã thanh toán', NULL, 0),
-(21, NULL, 'TB2', 2, NULL, 60000.00, '2025-03-23 17:45:43', 'Đã thanh toán', NULL, 0),
-(22, NULL, 'TB6', 2, NULL, 140000.00, '2025-03-23 16:08:29', 'Đã thanh toán', NULL, 0),
-(23, NULL, 'TB6', 1, NULL, 45000.00, '2025-03-24 13:39:28', 'Đã thanh toán', NULL, 0),
-(24, NULL, 'TB5', 1, NULL, 90000.00, '2025-03-24 07:48:11', 'Đã thanh toán', NULL, 0),
-(25, NULL, 'TB2', 2, NULL, 90000.00, '2025-03-24 17:40:51', 'Đã thanh toán', NULL, 0),
-(26, NULL, 'TB4', 2, NULL, 195000.00, '2025-03-24 14:39:15', 'Đã thanh toán', NULL, 0),
-(27, NULL, 'TB5', 1, NULL, 55000.00, '2025-03-25 13:49:14', 'Đã thanh toán', NULL, 0),
-(28, NULL, 'TB7', 1, NULL, 105000.00, '2025-03-25 12:46:08', 'Đã thanh toán', NULL, 0),
-(29, NULL, 'TB2', 2, NULL, 25000.00, '2025-03-25 20:14:43', 'Đã thanh toán', NULL, 0),
-(30, NULL, 'TB4', 2, NULL, 150000.00, '2025-03-25 15:45:21', 'Đã thanh toán', NULL, 0),
-(31, NULL, 'TB5', 1, NULL, 210000.00, '2025-03-26 12:31:47', 'Đã thanh toán', NULL, 0),
-(32, NULL, 'TB3', 1, NULL, 90000.00, '2025-03-26 10:12:54', 'Đã thanh toán', NULL, 0),
-(33, NULL, 'TB1', 2, NULL, 15000.00, '2025-03-26 16:13:21', 'Đã thanh toán', NULL, 0),
-(34, NULL, 'TB5', 2, NULL, 100000.00, '2025-03-26 14:44:50', 'Đã thanh toán', NULL, 0),
+(19, NULL, 'TB6', 1, NULL, 115000.00, '2025-03-23 08:13:49', 'Hoàn thành', NULL, 0),
+(20, NULL, 'TB4', 1, NULL, 60000.00, '2025-03-23 09:26:30', 'Hoàn thành', NULL, 0),
+(21, NULL, 'TB2', 2, NULL, 60000.00, '2025-03-23 17:45:43', 'Hoàn thành', NULL, 0),
+(22, NULL, 'TB6', 2, NULL, 140000.00, '2025-03-23 16:08:29', 'Hoàn thành', NULL, 0),
+(23, NULL, 'TB6', 1, NULL, 45000.00, '2025-03-24 13:39:28', 'Hoàn thành', NULL, 0),
+(24, NULL, 'TB5', 1, NULL, 90000.00, '2025-03-24 07:48:11', 'Hoàn thành', NULL, 0),
+(25, NULL, 'TB2', 2, NULL, 90000.00, '2025-03-24 17:40:51', 'Hoàn thành', NULL, 0),
+(26, NULL, 'TB4', 2, NULL, 195000.00, '2025-03-24 14:39:15', 'Hoàn thành', NULL, 0),
+(27, NULL, 'TB5', 1, NULL, 55000.00, '2025-03-25 13:49:14', 'Hoàn thành', NULL, 0),
+(28, NULL, 'TB7', 1, NULL, 105000.00, '2025-03-25 12:46:08', 'Hoàn thành', NULL, 0),
+(29, NULL, 'TB2', 2, NULL, 25000.00, '2025-03-25 20:14:43', 'Hoàn thành', NULL, 0),
+(30, NULL, 'TB4', 2, NULL, 150000.00, '2025-03-25 15:45:21', 'Hoàn thành', NULL, 0),
+(31, NULL, 'TB5', 1, NULL, 210000.00, '2025-03-26 12:31:47', 'Hoàn thành', NULL, 0),
+(32, NULL, 'TB3', 1, NULL, 90000.00, '2025-03-26 10:12:54', 'Hoàn thành', NULL, 0),
+(33, NULL, 'TB1', 2, NULL, 15000.00, '2025-03-26 16:13:21', 'Hoàn thành', NULL, 0),
+(34, NULL, 'TB5', 2, NULL, 100000.00, '2025-03-26 14:44:50', 'Hoàn thành', NULL, 0),
 (35, 1, 'TB7', 1, 1, 90000.00, '2025-03-26 08:26:13', 'Hoàn thành', 'ít đường | ', 0),
 (36, NULL, 'TB5', 1, NULL, 50000.00, '2025-03-24 13:59:59', 'Hoàn thành', NULL, 0),
 (37, NULL, 'TB7', 1, NULL, 115000.00, '2025-03-24 09:05:50', 'Hoàn thành', NULL, 0),
@@ -132,7 +132,8 @@ INSERT INTO `orders` (`order_id`, `user_id`, `table_id`, `shift_id`, `promo_id`,
 (46, NULL, 'TB3', 2, NULL, 15000.00, '2025-03-26 15:06:36', 'Hoàn thành', NULL, 0),
 (47, NULL, 'TB4', 2, NULL, 75000.00, '2025-03-26 17:40:50', 'Hoàn thành', NULL, 0),
 (48, 1, 'TB1', 1, NULL, 25000.00, '2025-03-26 08:34:11', 'Hoàn thành', ' | ', 0),
-(49, 1, 'TB1', 1, NULL, 155000.00, '2025-03-26 08:47:46', 'Hoàn thành', ' | ', 0);
+(49, 1, 'TB1', 1, NULL, 155000.00, '2025-03-26 08:47:46', 'Hoàn thành', ' | ', 0),
+(50, 1, 'TB1', 2, NULL, 115000.00, '2025-04-06 19:37:06', 'Hoàn thành', ' | ', 0);
 
 -- --------------------------------------------------------
 
@@ -220,7 +221,11 @@ INSERT INTO `order_details` (`order_id`, `product_id`, `quantity`, `price`, `not
 (49, 1, 1, 25000.00, NULL),
 (49, 3, 2, 35000.00, NULL),
 (49, 7, 1, 25000.00, NULL),
-(49, 9, 1, 35000.00, NULL);
+(49, 9, 1, 35000.00, NULL),
+(50, 1, 1, 25000.00, NULL),
+(50, 2, 1, 30000.00, NULL),
+(50, 3, 1, 35000.00, NULL),
+(50, 7, 1, 25000.00, NULL);
 
 -- --------------------------------------------------------
 
@@ -276,7 +281,8 @@ INSERT INTO `payments` (`payment_id`, `order_id`, `payment_method`, `amount`, `t
 (46, 46, 'Tiền mặt', 15000.00, NULL, 'Thành công', '2025-03-26 08:31:37'),
 (47, 47, 'MoMo', 75000.00, NULL, 'Thành công', '2025-03-26 08:31:37'),
 (48, 48, 'Tiền mặt', 25000.00, '', 'Thành công', '2025-03-26 08:34:11'),
-(49, 49, 'Tiền mặt', 155000.00, '', 'Thành công', '2025-03-26 08:47:46');
+(49, 49, 'Tiền mặt', 155000.00, '', 'Thành công', '2025-03-26 08:47:46'),
+(50, 50, 'Tiền mặt', 115000.00, '', 'Thành công', '2025-04-06 19:37:06');
 
 -- --------------------------------------------------------
 
@@ -520,9 +526,9 @@ CREATE TABLE `users` (
 --
 
 INSERT INTO `users` (`user_id`, `username`, `password`, `role`) VALUES
-(1, 'S01', '123456', 'Ca sáng'),
-(2, 'C01', '123456', 'Ca chiều'),
-(3, 'quanly1', 'admin123', 'Quản lý'),
+(1, 'S01', '$2y$10$NT2sr9ZNevlfYlibWvWTmO2ZueBqY7ff..zowh0t1F./x0TK16YTq', 'Ca sáng'),
+(2, 'C01', '$2y$10$6N2MxFeRUJIs0GDnNLcJ0OUj8EoMstYpIs4YHfwYSTOTbk3jtXtxm', 'Ca chiều'),
+(3, 'quanly1', '$2y$10$7rFUZ76VKVPseACp6eHDIuLCJyL9C5m66uDHsV9VAxsfGSNvHyS32', 'Quản lý'),
 (5, 'S02', '$2y$10$91bYXJkJB5w94fW6wwd9peddQCVJ3TdTPgRTyyqIoFpcbtVWy/F8K', 'Ca sáng');
 
 --
@@ -653,13 +659,13 @@ ALTER TABLE `materials`
 -- AUTO_INCREMENT cho bảng `orders`
 --
 ALTER TABLE `orders`
-  MODIFY `order_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=50;
+  MODIFY `order_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=52;
 
 --
 -- AUTO_INCREMENT cho bảng `payments`
 --
 ALTER TABLE `payments`
-  MODIFY `payment_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=50;
+  MODIFY `payment_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=52;
 
 --
 -- AUTO_INCREMENT cho bảng `products`

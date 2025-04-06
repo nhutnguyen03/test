@@ -171,7 +171,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status'])) {
                 <div class="alert alert-danger"><?php echo $error; ?></div>
             <?php endif; ?>
             
-            <div class="alert alert-info workflow-info">
+            <!-- <div class="alert alert-info workflow-info">
                 <strong>Quy trình xử lý đơn hàng:</strong>
                 <ul>
                     <li><span class="status-badge status-chờ-chế-biến">Chờ chế biến</span> - Đơn hàng mới được tạo sau khi khách đã thanh toán, đang chờ pha chế</li>
@@ -179,7 +179,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status'])) {
                     <li><span class="status-badge status-đã-thanh-toán">Đã thanh toán</span> - Đơn hàng đã được tạo và thanh toán (xử lý qua POS)</li>
                     <li><span class="status-badge status-đã-hủy">Đã hủy</span> - Đơn hàng đã bị hủy</li>
                 </ul>
-            </div>
+            </div> -->
             
             <div class="card">
                 <h2>Quản Lý Đơn Hàng & Pha Chế</h2>
