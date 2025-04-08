@@ -24,7 +24,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['add_category'])) {
         // Add new category
         $category_name = sanitize($_POST['category_name']);
-        $description = sanitize($_POST['description']);
+        // $description = sanitize($_POST['description']);
         $status = sanitize($_POST['status']);
         
         // Validate inputs
@@ -32,10 +32,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = "Vui lòng nhập tên danh mục";
         } else {
             // Insert category
-            $insert_query = "INSERT INTO Categories (category_name, description, status) 
-                           VALUES (?, ?, ?)";
+            $insert_query = "INSERT INTO Categories (category_name, status) 
+                           VALUES (?, ?)";
             $insert_stmt = $conn->prepare($insert_query);
-            $insert_stmt->bind_param("sss", $category_name, $description, $status);
+            $insert_stmt->bind_param("ss", $category_name, $status);
             
             if ($insert_stmt->execute()) {
                 $success = "Thêm danh mục thành công";
@@ -48,7 +48,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Update category
         $category_id = (int)$_POST['category_id'];
         $category_name = sanitize($_POST['category_name']);
-        $description = sanitize($_POST['description']);
+        // $description = sanitize($_POST['description']);
         $status = sanitize($_POST['status']);
         
         // Validate inputs
@@ -56,10 +56,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = "Vui lòng điền đầy đủ thông tin danh mục";
         } else {
             // Update category
-            $update_query = "UPDATE Categories SET category_name = ?, description = ?, status = ? 
+            $update_query = "UPDATE Categories SET category_name = ?, status = ? 
                            WHERE category_id = ?";
             $update_stmt = $conn->prepare($update_query);
-            $update_stmt->bind_param("sssi", $category_name, $description, $status, $category_id);
+            $update_stmt->bind_param("ssi", $category_name, $status, $category_id);
             
             if ($update_stmt->execute()) {
                 $success = "Cập nhật danh mục thành công";

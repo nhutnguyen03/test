@@ -42,7 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif (isset($_POST['update_supplier'])) {
         $supplier_id = (int)$_POST['supplier_id'];
         $supplier_name = sanitize($_POST['supplier_name']);
-        $contact_name = sanitize($_POST['contact_name']);
+        $contact_person = sanitize($_POST['contact_name']);
         $phone = sanitize($_POST['phone']);
         $email = sanitize($_POST['email']);
         $address = sanitize($_POST['address']);
@@ -51,10 +51,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (empty($supplier_name) || empty($phone) || $supplier_id <= 0) {
             $error = "Vui lòng điền đầy đủ thông tin nhà cung cấp";
         } else {
-            $update_query = "UPDATE Suppliers SET supplier_name = ?, contact_name = ?, phone = ?, 
+            $update_query = "UPDATE Suppliers SET supplier_name = ?, contact_person = ?, phone = ?, 
                            email = ?, address = ?, status = ? WHERE supplier_id = ?";
             $update_stmt = $conn->prepare($update_query);
-            $update_stmt->bind_param("ssssssi", $supplier_name, $contact_name, $phone, $email, $address, $status, $supplier_id);
+            $update_stmt->bind_param("ssssssi", $supplier_name, $contact_person, $phone, $email, $address, $status, $supplier_id);
             
             if ($update_stmt->execute()) {
                 $success = "Cập nhật nhà cung cấp thành công";
@@ -347,7 +347,7 @@ $total_suppliers_result = $conn->query($total_suppliers_query)->fetch_assoc();
                             <div class="form-group">
                                 <label for="contact_name">Người Liên Hệ</label>
                                 <input type="text" id="contact_name" name="contact_name" class="form-control"
-                                    value="<?php echo $edit_supplier ? $edit_supplier['contact_name'] : ''; ?>">
+                                    value="<?php echo $edit_supplier ? $edit_supplier['contact_person'] : ''; ?>">
                             </div>
                             
                             <div class="form-group">

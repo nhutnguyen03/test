@@ -987,7 +987,7 @@ ul {
 /* Add status badge styles */
 .status-badge {
     display: inline-block !important;
-    padding: 5px 10px !important;
+    padding: 5px 10px !important;   
     border-radius: 4px !important;
     font-weight: bold !important;
     font-size: 12px !important;
@@ -996,14 +996,72 @@ ul {
 
 .status-còn-hàng {
     background-color: #28a745 !important;
+    display: inline-block !important;
+    padding: 5px 10px !important;   
+    border-radius: 4px !important;
+    font-weight: bold !important;
+    font-size: 11px !important;
+    color: white !important;
+}
+
+.status-hoạt-động {
+    background-color: #28a745 !important;
+    display: inline-block !important;
+    padding: 5px 10px !important;   
+    border-radius: 4px !important;
+    font-weight: bold !important;
+    font-size: 11px !important;
+    color: white !important;
+}
+
+.status-không-hoạt-động {
+    background-color: #dc3545 !important;
+    display: inline-block !important;
+    padding: 5px 10px !important;   
+    border-radius: 4px !important;
+    font-weight: bold !important;
+    font-size: 11px !important;
+    color: white !important;
+}
+
+.status-ngừng-bán {
+    background-color: #dc3545 !important;
+    display: inline-block !important;
+    padding: 5px 10px !important;   
+    border-radius: 4px !important;
+    font-weight: bold !important;
+    font-size: 11px !important;
+    color: white !important;
 }
 
 .status-hết-hàng {
     background-color: #dc3545 !important;
+    display: inline-block !important;
+    padding: 5px 10px !important;   
+    border-radius: 4px !important;
+    font-weight: bold !important;
+    font-size: 11px !important;
+    color: white !important;
+}
+
+.status-hết-hạn {
+    background-color: #dc3545 !important;
+    display: inline-block !important;
+    padding: 5px 10px !important;   
+    border-radius: 4px !important;
+    font-weight: bold !important;
+    font-size: 11px !important;
+    color: white !important;
 }
 
 .status-hoàn-thành {
     background-color: #4CAF50 !important;
+    display: inline-block !important;
+    padding: 5px 10px !important;   
+    border-radius: 4px !important;
+    font-weight: bold !important;
+    font-size: 11px !important;
+    color: white !important;
 }
 
 .status-chờ-chế-biến {
@@ -1015,7 +1073,12 @@ ul {
 }
 
 .status-đã-hủy {
-    background-color: #F44336 !important;
+    background-color: #F44336 !important;display: inline-block !important;
+    padding: 5px 10px !important;   
+    border-radius: 4px !important;
+    font-weight: bold !important;
+    font-size: 11px !important;
+    color: white !important;
 }
 
 /* Order Notes Section */
