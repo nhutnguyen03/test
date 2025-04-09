@@ -439,7 +439,7 @@ $recent_transactions_result = $conn->query($recent_transactions_query);
                                             <td>
                                                 <?php echo $material['stock_quantity']; ?>
                                                 <?php if ($material['stock_quantity'] < $material['low_stock_threshold']): ?>
-                                                    <span class="badge badge-warning">Sắp hết</span>
+                                                    <span class="status-badge badge-warning">Sắp hết</span>
                                                 <?php endif; ?>
                                             </td>
                                             <td><?php echo $material['low_stock_threshold']; ?></td>
