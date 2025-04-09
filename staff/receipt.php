@@ -271,7 +271,7 @@ $payment = $payment_result->fetch_assoc();
 </head>
 <body>
     <!-- Navigation -->
-    <nav class="navbar">
+    <!-- <nav class="navbar">
         <div class="container">
             <a href="<?php echo $_SESSION['role'] === 'Quản lý' ? '../admin/index.php' : 'index.php'; ?>" class="navbar-brand">Quản Lý Quán Cà Phê</a>
             <ul class="navbar-nav">
@@ -295,7 +295,8 @@ $payment = $payment_result->fetch_assoc();
                 </li>
             </ul>
         </div>
-    </nav>
+    </nav> -->
+    <?php include 'navbar.php'; ?>
     
     <!-- Main Content -->
     <div class="container">

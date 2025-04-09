@@ -986,6 +986,16 @@ ul {
     color: white !important;
 }
 
+.badge-warning {
+    background-color: #b6b312 !important;
+    display: inline-block !important;
+    padding: 5px 10px !important;   
+    border-radius: 4px !important;
+    font-weight: bold !important;
+    font-size: 11px !important;
+    color: white !important;
+}
+
 .status-còn-hàng {
     background-color: #28a745 !important;
     display: inline-block !important;

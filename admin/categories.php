@@ -97,34 +97,7 @@ if (isset($_GET['edit']) && is_numeric($_GET['edit'])) {
 </head>
 <body>
     <!-- Navigation -->
-    <nav class="navbar">
-        <div class="container">
-            <a href="dashboard.php" class="navbar-brand">Quản Lý Quán Cà Phê</a>
-            <ul class="navbar-nav">
-                <li class="nav-item">
-                    <a href="products.php" class="nav-link">Sản Phẩm</a>
-                </li>
-                <li class="nav-item">
-                    <a href="categories.php" class="nav-link active">Danh Mục</a>
-                </li>
-                <li class="nav-item">
-                    <a href="inventory.php" class="nav-link">Kho Hàng</a>
-                </li>
-                <li class="nav-item">
-                    <a href="promotions.php" class="nav-link">Khuyến Mãi</a>
-                </li>
-                <li class="nav-item">
-                    <a href="reports.php" class="nav-link">Báo Cáo</a>
-                </li>
-                <li class="nav-item">
-                    <a href="users.php" class="nav-link">Nhân Viên</a>
-                </li>
-                <li class="nav-item">
-                    <a href="../logout.php" class="nav-link">Đăng Xuất</a>
-                </li>
-            </ul>
-        </div>
-    </nav>
+    <?php include 'navbar.php'; ?>
     
     <!-- Main Content -->
     <div class="container">

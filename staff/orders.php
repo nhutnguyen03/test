@@ -107,22 +107,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status'])) {
 </head>
 <body>
     <!-- Navigation -->
-    <nav class="navbar">
-        <div class="container">
-            <a href="pos.php" class="navbar-brand">Quản Lý Quán Cà Phê</a>
-            <ul class="navbar-nav">
-                <li class="nav-item">
-                    <a href="pos.php" class="nav-link">Bán Hàng</a>
-                </li>
-                <li class="nav-item">
-                    <a href="orders.php" class="nav-link">Đơn Hàng</a>
-                </li>
-                <li class="nav-item">
-                    <a href="../logout.php" class="nav-link">Đăng Xuất</a>
-                </li>
-            </ul>
-        </div>
-    </nav>
+    <?php include 'navbar.php'; ?>
     
     <!-- Main Content -->
     <div class="container">
