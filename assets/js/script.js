@@ -226,19 +226,15 @@ function updateOrderTotal() {
 
 // Add product to order
 function addProductToOrder(productId, productName, productPrice, productSize) {
+    // Check if product is already in the order
     const existingItem = document.querySelector(`.order-item[data-id="${productId}"]`);
     
     if (existingItem) {
+        updateItemQuantity(existingItem, 1);
+        
         const quantityElement = existingItem.querySelector('.item-quantity');
-        let quantity = parseInt(quantityElement.textContent);
-        quantity++;
-        quantityElement.textContent = quantity;
-        
-        const subtotalElement = existingItem.querySelector('.item-subtotal');
-        const subtotal = quantity * productPrice;
-        subtotalElement.textContent = formatCurrency(subtotal);
-        
-        const quantityInput = document.querySelector(`input[name="quantity[${productId}]"]`);
+        const quantity = parseInt(quantityElement.textContent);
+        const quantityInput = existingItem.querySelector(`input[name="quantity[${productId}]"]`);
         quantityInput.value = quantity;
     } else {
         const orderItems = document.querySelector('.order-items');

@@ -269,27 +269,41 @@ if (isset($success)) {
                     </div>
                     
                     <div class="products-grid">
-                        <?php if ($products_result->num_rows > 0): ?>
-                            <?php while ($product = $products_result->fetch_assoc()): ?>
-                                <div class="product-item" 
-                                     data-id="<?php echo $product['product_id']; ?>"
-                                     data-category="<?php echo $product['category_id']; ?>"
-                                     data-price="<?php echo $product['price']; ?>"
-                                     data-size="<?php echo $product['size']; ?>">
-                                    <div class="product-name">
-                                        <?php echo $product['product_name']; ?>
-                                    </div>
-                                    <div class="product-size">
-                                        <?php echo $product['size']; ?>
-                                    </div>
-                                    <div class="product-price">
-                                        <?php echo formatCurrency($product['price']); ?>
+                        <?php
+                        // Phân loại sản phẩm theo size
+                        $products_by_size = [
+                            'Nhỏ' => [],
+                            'Vừa' => [],
+                            'Lớn' => []
+                        ];
+                        
+                        while ($product = $products_result->fetch_assoc()) {
+                            $size = $product['size'];
+                            if (isset($products_by_size[$size])) {
+                                $products_by_size[$size][] = $product;
+                            }
+                        }
+                        ?>
+                        
+                        <div class="products-container">
+                            <?php foreach ($products_by_size as $size => $products): ?>
+                                <div class="size-column">
+                                    <h3 class="size-title"><?php echo $size; ?></h3>
+                                    <div class="products-list">
+                                        <?php foreach ($products as $product): ?>
+                                            <div class="product-item" 
+                                                 data-id="<?php echo $product['product_id']; ?>"
+                                                 data-category="<?php echo $product['category_id']; ?>"
+                                                 data-price="<?php echo $product['price']; ?>"
+                                                 data-size="<?php echo $product['size']; ?>">
+                                                <div class="product-name"><?php echo $product['product_name']; ?></div>
+                                                <div class="product-price"><?php echo formatCurrency($product['price']); ?></div>
+                                            </div>
+                                        <?php endforeach; ?>
                                     </div>
                                 </div>
-                            <?php endwhile; ?>
-                        <?php else: ?>
-                            <p>Không có sản phẩm nào</p>
-                        <?php endif; ?>
+                            <?php endforeach; ?>
+                        </div>
                     </div>
                 </div>
                 
