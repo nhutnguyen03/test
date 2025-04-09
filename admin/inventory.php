@@ -178,7 +178,7 @@ if (isset($_GET['edit']) && is_numeric($_GET['edit'])) {
 $low_stock_query = "SELECT m.*, s.supplier_name 
                    FROM Materials m 
                    JOIN Suppliers s ON m.supplier_id = s.supplier_id 
-                   WHERE m.stock_quantity < 10 
+                   WHERE m.stock_quantity < m.low_stock_threshold 
                    ORDER BY m.stock_quantity ASC
                    LIMIT 5";
 $low_stock_result = $conn->query($low_stock_query);

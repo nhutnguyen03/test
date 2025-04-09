@@ -162,7 +162,7 @@ if (isset($_GET['edit']) && is_numeric($_GET['edit'])) {
                                 <label for="status">Trạng Thái</label>
                                 <select id="status" name="status" required>
                                     <option value="Hoạt động" <?php echo ($edit_category && $edit_category['status'] == 'Hoạt động') ? 'selected' : ''; ?>>Hoạt động</option>
-                                    <option value="Ngừng hoạt động" <?php echo ($edit_category && $edit_category['status'] == 'Ngừng hoạt động') ? 'selected' : ''; ?>>Ngừng hoạt động</option>
+                                    <option value="Không hoạt động" <?php echo ($edit_category && $edit_category['status'] == 'Không hoạt động') ? 'selected' : ''; ?>>Không hoạt động</option>
                                 </select>
                             </div>
                             

@@ -364,7 +364,7 @@ CREATE TABLE `promotions` (
 
 INSERT INTO `promotions` (`promo_id`, `discount_code`, `discount_value`, `start_date`, `end_date`, `status`) VALUES
 (1, 'mnhutdeptrai', 20000.00, '2025-03-18', '2025-04-30', 'Hoạt động'),
-(2, 'mnhutngu', 30000.00, '2025-03-18', '2025-04-30', 'Hoạt động');
+(2, 'thinhngu', 30000.00, '2025-03-18', '2025-04-30', 'Hoạt động');
 
 
 -- --------------------------------------------------------
