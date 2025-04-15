@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Máy chủ: 127.0.0.1
--- Thời gian đã tạo: Th4 06, 2025 lúc 02:47 PM
+-- Thời gian đã tạo: Th4 15, 2025 lúc 03:10 PM
 -- Phiên bản máy phục vụ: 10.4.32-MariaDB
 -- Phiên bản PHP: 8.2.12
 
@@ -67,11 +67,11 @@ INSERT INTO `materials` (`material_id`, `material_name`, `supplier_id`, `unit`, 
 (1, 'Trà ô long', 1, 'túi', 50, 50, 'Còn hàng'),
 (2, 'Hạt cà phê robusta', 2, 'kg', 30, 10, 'Còn hàng'),
 (3, 'Sữa đặc', 2, 'lít', 20, 10, 'Còn hàng'),
-(4, 'Bánh cookies', 3, 'cái', 20, 10, 'Còn hàng'),
-(5, 'Bánh chuối', 3, 'cái', 10, 10, 'Còn hàng'),
-(6, 'Bột cacao', 3, 'kg', 6, 1, 'Còn hàng'),
+(4, 'Bánh cookies', 3, 'cái', 10, 10, 'Còn hàng'),
+(5, 'Bánh chuối', 3, 'cái', 7, 10, 'Còn hàng'),
+(6, 'Bột cacao', 3, 'kg', 6, 2, 'Còn hàng'),
 (7, 'Nước suối đóng chai', 4, 'chai', 100, 30, 'Còn hàng'),
-(8, 'Coca lon', 4, 'lon', 100, 20, 'Còn hàng'),
+(8, 'Coca lon', 4, 'lon', 110, 20, 'Còn hàng'),
 (9, 'Trân châu khô', 5, 'kg', 25, 5, 'Còn hàng'),
 (10, 'Thạch rau câu', 5, 'kg', 20, 5, 'Còn hàng');
 
@@ -133,7 +133,10 @@ INSERT INTO `orders` (`order_id`, `user_id`, `table_id`, `shift_id`, `promo_id`,
 (47, NULL, 'TB4', 2, NULL, 75000.00, '2025-03-26 17:40:50', 'Hoàn thành', NULL, 0),
 (48, 1, 'TB1', 1, NULL, 25000.00, '2025-03-26 08:34:11', 'Hoàn thành', ' | ', 0),
 (49, 1, 'TB1', 1, NULL, 155000.00, '2025-03-26 08:47:46', 'Hoàn thành', ' | ', 0),
-(50, 1, 'TB1', 2, NULL, 115000.00, '2025-04-06 19:37:06', 'Hoàn thành', ' | ', 0);
+(50, 1, 'TB1', 2, NULL, 115000.00, '2025-04-06 19:37:06', 'Hoàn thành', ' | ', 0),
+(52, 1, 'TB1', 1, NULL, 30000.00, '2025-04-09 08:25:22', 'Hoàn thành', ' | ', 0),
+(54, 1, 'TB1', 2, 1, 30000.00, '2025-04-15 19:58:19', 'Hoàn thành', ' | ', 0),
+(55, 1, 'TB1', 2, 3, 65000.00, '2025-04-15 20:06:19', 'Hoàn thành', ' | ', 0);
 
 -- --------------------------------------------------------
 
@@ -225,7 +228,13 @@ INSERT INTO `order_details` (`order_id`, `product_id`, `quantity`, `price`, `not
 (50, 1, 1, 25000.00, NULL),
 (50, 2, 1, 30000.00, NULL),
 (50, 3, 1, 35000.00, NULL),
-(50, 7, 1, 25000.00, NULL);
+(50, 7, 1, 25000.00, NULL),
+(52, 2, 1, 30000.00, NULL),
+(54, 1, 1, 25000.00, NULL),
+(54, 7, 1, 25000.00, NULL),
+(55, 2, 1, 30000.00, NULL),
+(55, 3, 1, 35000.00, NULL),
+(55, 16, 1, 10000.00, NULL);
 
 -- --------------------------------------------------------
 
@@ -282,7 +291,10 @@ INSERT INTO `payments` (`payment_id`, `order_id`, `payment_method`, `amount`, `t
 (47, 47, 'MoMo', 75000.00, NULL, 'Thành công', '2025-03-26 08:31:37'),
 (48, 48, 'Tiền mặt', 25000.00, '', 'Thành công', '2025-03-26 08:34:11'),
 (49, 49, 'Tiền mặt', 155000.00, '', 'Thành công', '2025-03-26 08:47:46'),
-(50, 50, 'Tiền mặt', 115000.00, '', 'Thành công', '2025-04-06 19:37:06');
+(50, 50, 'Tiền mặt', 115000.00, '', 'Thành công', '2025-04-06 19:37:06'),
+(52, 52, 'Tiền mặt', 30000.00, '', 'Thành công', '2025-04-09 08:25:22'),
+(54, 54, 'Tiền mặt', 30000.00, '', 'Thành công', '2025-04-15 19:58:19'),
+(55, 55, 'Thẻ', 65000.00, '', 'Thành công', '2025-04-15 20:06:19');
 
 -- --------------------------------------------------------
 
@@ -318,7 +330,8 @@ INSERT INTO `products` (`product_id`, `product_name`, `category_id`, `size`, `pr
 (12, 'Nước suối', 4, 'Vừa', 10000.00, 'Hoạt động'),
 (13, 'Coca', 4, 'Vừa', 15000.00, 'Hoạt động'),
 (14, 'Topping (Trân châu)', 4, 'Nhỏ', 5000.00, 'Hoạt động'),
-(15, 'Topping (Thạch)', 4, 'Nhỏ', 5000.00, 'Hoạt động');
+(15, 'Topping (Thạch)', 4, 'Nhỏ', 5000.00, 'Hoạt động'),
+(16, 'Trà thanh đào', 1, 'Nhỏ', 10000.00, 'Hoạt động');
 
 -- --------------------------------------------------------
 
@@ -341,7 +354,8 @@ CREATE TABLE `profit_reports` (
 --
 
 INSERT INTO `profit_reports` (`report_id`, `month`, `year`, `total_revenue`, `total_cost`, `total_orders`) VALUES
-(1, 3, 2025, 2685000.00, 504000.00, 34);
+(1, 3, 2025, 2685000.00, 504000.00, 34),
+(2, 4, 2025, 240000.00, 94000.00, 4);
 
 -- --------------------------------------------------------
 
@@ -364,8 +378,7 @@ CREATE TABLE `promotions` (
 
 INSERT INTO `promotions` (`promo_id`, `discount_code`, `discount_value`, `start_date`, `end_date`, `status`) VALUES
 (1, 'mnhutdeptrai', 20000.00, '2025-03-18', '2025-04-30', 'Hoạt động'),
-(2, 'thinhngu', 30000.00, '2025-03-18', '2025-04-30', 'Hoạt động');
-
+(3, 'khuyenmai1', 10000.00, '2025-04-15', '2025-04-30', 'Hoạt động');
 
 -- --------------------------------------------------------
 
@@ -457,7 +470,13 @@ INSERT INTO `stock_transactions` (`transaction_id`, `material_id`, `transaction_
 (2, 5, 'Nhập', 2, 7000.00, '2025-03-29 11:04:36', ''),
 (3, 4, 'Nhập', 5, 10000.00, '2025-03-29 11:04:36', ''),
 (4, 8, 'Nhập', 50, 8000.00, '2025-03-29 11:31:13', ''),
-(5, 6, 'Nhập', 1, 40000.00, '2025-03-29 11:38:00', '');
+(5, 6, 'Nhập', 1, 40000.00, '2025-03-29 11:38:00', ''),
+(6, 5, 'Xuất', 1, 7000.00, '2025-04-09 08:37:01', 'bán'),
+(7, 8, 'Nhập', 10, 8000.00, '2025-04-09 10:04:56', ''),
+(8, 5, 'Nhập', 2, 7000.00, '2025-04-09 10:13:57', ''),
+(9, 5, 'Xuất', 2, 7000.00, '2025-04-09 10:14:56', 'Bán'),
+(10, 5, 'Xuất', 2, 7000.00, '2025-04-09 10:15:18', ''),
+(11, 4, 'Xuất', 10, 10000.00, '2025-04-09 10:15:18', '');
 
 -- --------------------------------------------------------
 
@@ -661,31 +680,31 @@ ALTER TABLE `materials`
 -- AUTO_INCREMENT cho bảng `orders`
 --
 ALTER TABLE `orders`
-  MODIFY `order_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=52;
+  MODIFY `order_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=56;
 
 --
 -- AUTO_INCREMENT cho bảng `payments`
 --
 ALTER TABLE `payments`
-  MODIFY `payment_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=52;
+  MODIFY `payment_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=56;
 
 --
 -- AUTO_INCREMENT cho bảng `products`
 --
 ALTER TABLE `products`
-  MODIFY `product_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=16;
+  MODIFY `product_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=17;
 
 --
 -- AUTO_INCREMENT cho bảng `profit_reports`
 --
 ALTER TABLE `profit_reports`
-  MODIFY `report_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `report_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- AUTO_INCREMENT cho bảng `promotions`
 --
 ALTER TABLE `promotions`
-  MODIFY `promo_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `promo_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- AUTO_INCREMENT cho bảng `revenue_reports`
