@@ -19,6 +19,19 @@ if ($_SESSION['role'] !== 'Quản lý') {
 $users_query = "SELECT * FROM Users ORDER BY username";
 $users_result = $conn->query($users_query);
 
+// Check if active column exists in Users table
+$check_column_query = "SHOW COLUMNS FROM Users LIKE 'active'";
+$column_exists = $conn->query($check_column_query)->num_rows > 0;
+
+// Add active column if it doesn't exist
+if (!$column_exists) {
+    $add_column_query = "ALTER TABLE Users ADD COLUMN active TINYINT(1) NOT NULL DEFAULT 1";
+    $conn->query($add_column_query);
+    // Update users_query to include the new column
+    $users_query = "SELECT * FROM Users ORDER BY username";
+    $users_result = $conn->query($users_query);
+}
+
 // Process user form
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['add_user'])) {
@@ -48,7 +61,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $error = "Tên đăng nhập đã tồn tại";
             } else {
                 // Insert user
-                $insert_query = "INSERT INTO Users (username, password, role) VALUES (?, ?, ?)";
+                $insert_query = "INSERT INTO Users (username, password, role, active) VALUES (?, ?, ?, 1)";
                 $insert_stmt = $conn->prepare($insert_query);
                 $insert_stmt->bind_param("sss", $username, $hashed_password, $role);
                 
@@ -67,6 +80,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $password = sanitize($_POST['password']);
         $confirm_password = sanitize($_POST['confirm_password']);
         $role = sanitize($_POST['role']);
+        $active = isset($_POST['active']) ? 1 : 0;
         
         // Validate inputs
         if ($user_id <= 0 || empty($username) || empty($role)) {
@@ -74,54 +88,87 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif (!empty($password) && $password !== $confirm_password) {
             $error = "Mật khẩu xác nhận không khớp";
         } else {
-            // Check if username exists for another user
-            $check_query = "SELECT COUNT(*) FROM Users WHERE username = ? AND user_id != ?";
-            $check_stmt = $conn->prepare($check_query);
-            $check_stmt->bind_param("si", $username, $user_id);
-            $check_stmt->execute();
-            $check_result = $check_stmt->get_result()->fetch_row();
+            // Check user's role before updating
+            $role_query = "SELECT role FROM Users WHERE user_id = ?";
+            $role_stmt = $conn->prepare($role_query);
+            $role_stmt->bind_param("i", $user_id);
+            $role_stmt->execute();
+            $role_result = $role_stmt->get_result();
             
-            if ($check_result[0] > 0) {
-                $error = "Tên đăng nhập đã tồn tại";
-            } else {
-                // Update user (only update password if provided)
-                if (!empty($password)) {
-                    $hashed_password = password_hash($password, PASSWORD_DEFAULT);
-                    $update_query = "UPDATE Users SET username = ?, password = ?, role = ? WHERE user_id = ?";
-                    $update_stmt = $conn->prepare($update_query);
-                    $update_stmt->bind_param("sssi", $username, $hashed_password, $role, $user_id);
-                } else {
-                    $update_query = "UPDATE Users SET username = ?, role = ? WHERE user_id = ?";
-                    $update_stmt = $conn->prepare($update_query);
-                    $update_stmt->bind_param("ssi", $username, $role, $user_id);
-                }
+            if ($role_result->num_rows > 0) {
+                $current_role = $role_result->fetch_assoc()['role'];
                 
-                if ($update_stmt->execute()) {
-                    $success = "Cập nhật người dùng thành công";
-                    $users_result = $conn->query($users_query);
+                // Prevent deactivating admin account
+                if ($current_role == 'Quản lý' && $active == 0) {
+                    $error = "Không thể vô hiệu hóa tài khoản Quản lý";
                 } else {
-                    $error = "Lỗi khi cập nhật người dùng: " . $conn->error;
+                    // Check if username exists for another user
+                    $check_query = "SELECT COUNT(*) FROM Users WHERE username = ? AND user_id != ?";
+                    $check_stmt = $conn->prepare($check_query);
+                    $check_stmt->bind_param("si", $username, $user_id);
+                    $check_stmt->execute();
+                    $check_result = $check_stmt->get_result()->fetch_row();
+                    
+                    if ($check_result[0] > 0) {
+                        $error = "Tên đăng nhập đã tồn tại";
+                    } else {
+                        // Update user (only update password if provided)
+                        if (!empty($password)) {
+                            $hashed_password = password_hash($password, PASSWORD_DEFAULT);
+                            $update_query = "UPDATE Users SET username = ?, password = ?, role = ?, active = ? WHERE user_id = ?";
+                            $update_stmt = $conn->prepare($update_query);
+                            $update_stmt->bind_param("sssii", $username, $hashed_password, $role, $active, $user_id);
+                        } else {
+                            $update_query = "UPDATE Users SET username = ?, role = ?, active = ? WHERE user_id = ?";
+                            $update_stmt = $conn->prepare($update_query);
+                            $update_stmt->bind_param("ssii", $username, $role, $active, $user_id);
+                        }
+                        
+                        if ($update_stmt->execute()) {
+                            $success = "Cập nhật người dùng thành công";
+                            $users_result = $conn->query($users_query);
+                        } else {
+                            $error = "Lỗi khi cập nhật người dùng: " . $conn->error;
+                        }
+                    }
                 }
+            } else {
+                $error = "Không tìm thấy người dùng";
             }
         }
-    } elseif (isset($_POST['delete_user'])) {
-        // Delete user
+    } elseif (isset($_POST['deactivate_user'])) {
+        // Deactivate user instead of deleting
         $user_id = (int)$_POST['user_id'];
         
         if ($user_id > 0) {
-            // Prevent deleting current user
-            if ($user_id == $_SESSION['user_id']) {
-                $error = "Không thể xóa tài khoản đang đăng nhập";
-            } else {
-                $delete_query = "DELETE FROM Users WHERE user_id = ?";
-                $delete_stmt = $conn->prepare($delete_query);
-                $delete_stmt->bind_param("i", $user_id);
+            // Get user role
+            $role_query = "SELECT role FROM Users WHERE user_id = ?";
+            $role_stmt = $conn->prepare($role_query);
+            $role_stmt->bind_param("i", $user_id);
+            $role_stmt->execute();
+            $role_result = $role_stmt->get_result();
+            
+            if ($role_result->num_rows > 0) {
+                $user_role = $role_result->fetch_assoc()['role'];
                 
-                if ($delete_stmt->execute()) {
-                    $success = "Xóa người dùng thành công";
-                    $users_result = $conn->query($users_query);
+                // Prevent deactivating current user
+                if ($user_id == $_SESSION['user_id']) {
+                    $error = "Không thể vô hiệu hóa tài khoản đang đăng nhập";
+                } 
+                // Prevent deactivating any admin account
+                elseif ($user_role == 'Quản lý') {
+                    $error = "Không thể vô hiệu hóa tài khoản Quản lý";
                 } else {
-                    $error = "Lỗi khi xóa người dùng: " . $conn->error;
+                    $deactivate_query = "UPDATE Users SET active = 0 WHERE user_id = ?";
+                    $deactivate_stmt = $conn->prepare($deactivate_query);
+                    $deactivate_stmt->bind_param("i", $user_id);
+                    
+                    if ($deactivate_stmt->execute()) {
+                        $success = "Vô hiệu hóa người dùng thành công";
+                        $users_result = $conn->query($users_query);
+                    } else {
+                        $error = "Lỗi khi vô hiệu hóa người dùng: " . $conn->error;
+                    }
                 }
             }
         }
@@ -201,6 +248,21 @@ if (isset($_GET['edit']) && is_numeric($_GET['edit'])) {
                                 </select>
                             </div>
                             <?php if ($edit_user): ?>
+                            <div class="form-group">
+                                <label for="active">Trạng thái hoạt động</label>
+                                <div class="checkbox">
+                                    <?php if ($edit_user['role'] == 'Quản lý'): ?>
+                                        <input type="checkbox" id="active" name="active" checked disabled>
+                                        <label for="active">Kích hoạt <span class="status-note">(Tài khoản quản lý không thể vô hiệu hóa)</span></label>
+                                        <input type="hidden" name="active" value="1">
+                                    <?php else: ?>
+                                        <input type="checkbox" id="active" name="active" <?php echo (!isset($edit_user['active']) || $edit_user['active'] == 1) ? 'checked' : ''; ?>>
+                                        <label for="active">Kích hoạt</label>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                            <?php endif; ?>
+                            <?php if ($edit_user): ?>
                                 <button type="submit" name="update_user" class="btn btn-primary btn-block">Cập Nhật Người Dùng</button>
                                 <a href="users.php" class="btn btn-secondary btn-block">Hủy</a>
                             <?php else: ?>
@@ -219,6 +281,7 @@ if (isset($_GET['edit']) && is_numeric($_GET['edit'])) {
                                     <th>ID</th>
                                     <th>Tên Đăng Nhập</th>
                                     <th>Vai Trò</th>
+                                    <th>Trạng thái</th>
                                     <th>Thao Tác</th>
                                 </tr>
                             </thead>
@@ -230,11 +293,20 @@ if (isset($_GET['edit']) && is_numeric($_GET['edit'])) {
                                             <td><?php echo $user['username']; ?></td>
                                             <td><?php echo $user['role']; ?></td>
                                             <td>
+                                                <?php echo isset($user['active']) ? ($user['active'] ? '<span class="status-active">Hoạt động</span>' : '<span class="status-inactive">Không hoạt động</span>') : '<span class="status-active">Hoạt động</span>'; ?>
+                                            </td>
+                                            <td>
                                                 <a href="users.php?edit=<?php echo $user['user_id']; ?>" class="btn btn-secondary btn-sm">Sửa</a>
-                                                <form method="POST" action="users.php" style="display:inline;" onsubmit="return confirm('Bạn có chắc muốn xóa người dùng này?');">
+                                                <?php if (
+                                                    (!isset($user['active']) || $user['active'] == 1) && 
+                                                    $user['user_id'] != $_SESSION['user_id'] && 
+                                                    $user['role'] != 'Quản lý'
+                                                ): ?>
+                                                <form method="POST" action="users.php" style="display:inline;" onsubmit="return confirm('Bạn có chắc muốn vô hiệu hóa người dùng này? Điều này sẽ giữ lại lịch sử đơn hàng của họ.');">
                                                     <input type="hidden" name="user_id" value="<?php echo $user['user_id']; ?>">
-                                                    <button type="submit" name="delete_user" class="btn btn-danger btn-sm">Xóa</button>
+                                                    <button type="submit" name="deactivate_user" class="btn btn-danger btn-sm">Vô hiệu hóa</button>
                                                 </form>
+                                                <?php endif; ?>
                                             </td>
                                         </tr>
                                     <?php endwhile; ?>

@@ -71,4 +71,26 @@ function formatCurrency($amount) {
 function generateOrderId() {
     return date('YmdHis') . rand(100, 999);
 }
+
+/**
+ * Check if user is active
+ * @param mysqli $conn
+ * @param int $user_id
+ * @return bool
+ */
+function isUserActive($conn, $user_id) {
+    $query = "SELECT active FROM Users WHERE user_id = ?";
+    $stmt = $conn->prepare($query);
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    
+    if ($result->num_rows > 0) {
+        $user = $result->fetch_assoc();
+        // If active column doesn't exist yet or is set to 1, user is active
+        return !isset($user['active']) || $user['active'] == 1;
+    }
+    
+    return false;
+}
 ?>

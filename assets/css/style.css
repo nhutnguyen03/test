@@ -1093,6 +1093,42 @@ ul {
     color: white !important;
 }
 
+/* Thêm kiểu hiển thị trạng thái người dùng */
+.status-active {
+    color: #28a745;
+    font-weight: bold;
+}
+
+.status-inactive {
+    color: #dc3545;
+    font-weight: bold;
+}
+
+/* Thêm kiểu cho ghi chú trạng thái tài khoản quản lý */
+.status-note {
+    color: #856404;
+    font-size: 12px;
+    font-style: italic;
+    font-weight: normal;
+    margin-left: 5px;
+    background-color: #fff3cd;
+    padding: 2px 5px;
+    border-radius: 3px;
+}
+
+/* Kiểu checkbox cho trạng thái active */
+.checkbox {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 5px;
+}
+
+.checkbox input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+}
+
 /* Responsive styles */
 @media (max-width: 991px) {
     .pos-container {

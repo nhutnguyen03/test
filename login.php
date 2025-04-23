@@ -8,6 +8,7 @@ if (isset($_SESSION['user_id'])) {
 
 // Database connection
 require_once 'config/db.php';
+require_once 'config/functions.php';
 
 $error = '';
 
@@ -20,7 +21,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'Vui lòng nhập tên đăng nhập và mật khẩu';
     } else {
         // Query to check user credentials
-        $query = "SELECT user_id, username, role, password FROM Users WHERE username = ?";
+        $query = "SELECT user_id, username, role, password, active FROM Users WHERE username = ?";
         $stmt = $conn->prepare($query);
         $stmt->bind_param("s", $username);
         $stmt->execute();
@@ -30,14 +31,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $user = $result->fetch_assoc();
             // Verify password
             if (password_verify($password, $user['password'])) {
-                // Set session variables
-                $_SESSION['user_id'] = $user['user_id'];
-                $_SESSION['username'] = $user['username'];
-                $_SESSION['role'] = $user['role'];
-                
-                // Redirect to index which will route to appropriate page
-                header("Location: index.php");
-                exit();
+                // Check if user is active
+                if (!isset($user['active']) || $user['active'] == 1) {
+                    // Set session variables
+                    $_SESSION['user_id'] = $user['user_id'];
+                    $_SESSION['username'] = $user['username'];
+                    $_SESSION['role'] = $user['role'];
+                    
+                    // Redirect to index which will route to appropriate page
+                    header("Location: index.php");
+                    exit();
+                } else {
+                    $error = 'Tài khoản này đã bị vô hiệu hóa. Vui lòng liên hệ quản lý.';
+                }
             } else {
                 $error = 'Tên đăng nhập hoặc mật khẩu không đúng';
             }
